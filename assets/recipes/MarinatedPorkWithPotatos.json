@@ -1,0 +1,32 @@
+{
+  "name": "Pork Tenderloin with Gratinated Potatoes",
+  "ingredients": [
+    "500 g pork tenderloin",
+    "2 tbsp mustard",
+    "2 cloves garlic, crushed",
+    "Salt, pepper to taste",
+    "20 g butter for searing",
+    "500 g gratinated potatoes with cheese on top"
+  ],
+  "instructions": [
+    "Mix mustard, crushed garlic, salt, and pepper to create the marinade.",
+    "Smear the pork tenderloin with the marinade.",
+    "Sear the meat on high heat in a pan with melted butter until browned.",
+    "Transfer pork to a baking dish and cook in the oven using a thermometer until internal temperature reaches 53°C.",
+    "Serve pork with gratinated potatoes on the side."
+  ],
+  "macros": {
+    "per_100g": {
+      "cals": "141",
+      "carbs": "7.3",
+      "fat": "5.4",
+      "protein": "12"
+    },
+    "total": {
+      "cals": "1483",
+      "carbs": "77",
+      "fat": "57",
+      "protein": "126"
+    }
+  }
+}

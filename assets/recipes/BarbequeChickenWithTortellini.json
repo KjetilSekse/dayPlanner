@@ -1,0 +1,30 @@
+{
+  "name": "Chicken Thigh Marinade Bowl",
+  "ingredients": [
+    "400 g chicken thigh fillet",
+    "40 g brown sugar",
+    "80 g ketchup",
+    "Salt, pepper, basil (to taste)",
+    "125 g cooked tortellini"
+  ],
+  "instructions": [
+    "Combine brown sugar, ketchup, salt, pepper, and basil to create the marinade.",
+    "Coat the chicken thigh fillets in the marinade and let sit for at least 15 minutes.",
+    "Cook the chicken in a pan over medium to high heat until fully cooked and caramelized.",
+    "Cook tortellini according to package instructions and serve on the side."
+  ],
+  "macros": {
+    "per_100g": {
+      "cals": "212 kcal",
+      "carbs": "15 g",
+      "fat": "10.4 g",
+      "protein": "12.7 g"
+    },
+    "total": {
+      "cals": "1270 kcal",
+      "carbs": "91 g",
+      "fat": "62.5 g",
+      "protein": "76.3 g"
+    }
+  }
+}

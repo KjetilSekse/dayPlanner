@@ -1,0 +1,36 @@
+{
+  "name": "Pasta with Parmesan Tomato Sauce",
+  "ingredients": [
+    "400 g minced meat (14% fat)",
+    "400 g canned tomatoes",
+    "140 g tomato paste",
+    "100 ml heavy cream",
+    "25–50 g parmesan cheese",
+    "1 onion, finely chopped",
+    "6 cloves garlic, minced",
+    "2 carrots, grated",
+    "200 g pasta of choice"
+  ],
+  "instructions": [
+    "Cut the onion, grate the carrot, and peel the garlic. Cook in a pan with 10 g of butter and some salt until translucent.",
+    "Add minced meat and cook until browned.",
+    "Mix the cooked vegetables with the tomato paste, take into mixer and mix until smooth paste",
+    "Pour back into casserole and cook until bubble start forming",
+    "Stir in heavy cream and simmer for 10–15 minutes.",
+    "Add cooked pasta and parmesan. Stir and serve."
+  ],
+  "macros": {
+    "per_100g": {
+      "cals": "111",
+      "carbs": "9.6",
+      "fat": "5.1",
+      "protein": "6.2"
+    },
+    "total": {
+      "cals": "2338",
+      "carbs": "212",
+      "fat": "107",
+      "protein": "128"
+    }
+  }
+}
