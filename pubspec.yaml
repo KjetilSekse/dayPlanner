@@ -18,3 +18,7 @@ flutter:
   assets:
     - assets/menus/
     - assets/recipes/
+    - assets/breakfast/
+    - assets/lunch/
+    - assets/dinner/Fancy/
+    - assets/dinner/Taco/

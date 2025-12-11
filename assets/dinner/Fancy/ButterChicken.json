@@ -1,0 +1,49 @@
+{
+  "name": "Butter Chicken (Homemade)",
+  "ingredients": [
+    "Chicken marinade:",
+    "450 g boneless chicken breast, cut into 1.5 inch cubes",
+    "2 tbsp tandoori masala",
+    "1 tsp ginger paste",
+    "1 tsp garlic paste",
+    "1/2 cup yogurt",
+    "1 tbsp oil",
+    "Butter chicken sauce:",
+    "Heavy cream (2 dl + extra 200 g)",
+    "2 tbsp ghee (clarified butter)",
+    "1 large onion, thinly sliced",
+    "1.5 tsp ginger paste",
+    "1.5 tsp garlic paste",
+    "1 can crushed tomatoes",
+    "1 tsp chili powder",
+    "1.5 tsp coriander powder",
+    "1.5 tsp cumin powder",
+    "1/2 tsp garam masala",
+    "1/4 tsp dried fenugreek leaves (crushed)",
+    "naan bread or papadums as side",
+    "rice"
+  ],
+  "instructions": [
+    "Marinate the chicken by mixing yogurt, oil, tandoori masala, ginger paste, and garlic paste. Add chicken and coat well. Let rest for at least 30 minutes.",
+    "Heat ghee in a pan over medium heat. Add sliced onions and cook until soft and golden.",
+    "Add ginger paste and garlic paste; sauté briefly.",
+    "Add crushed tomatoes, heavy cream, chili powder, coriander, and cumin. Simmer until the sauce thickens.",
+    "Cook the marinated chicken in a separate pan until mostly done, then add to the sauce.",
+    "Pour in heavy cream and stir. Simmer on low heat until chicken is fully cooked and the sauce thickens.",
+    "Finish with garam masala and crushed fenugreek leaves. Stir and serve."
+  ],
+  "macros": {
+    "per_100g": {
+      "cals": "185 kcal",
+      "carbs": "3.5 g",
+      "fat": "12.9 g",
+      "protein": "12.7 g"
+    },
+    "total": {
+      "cals": "2220 kcal",
+      "carbs": "42 g",
+      "fat": "155 g",
+      "protein": "152 g"
+    }
+  }
+}

@@ -1,16 +1,29 @@
 {
-  "name": "HearthyKesam",
-  "meal": [
-    {
-      "time": "08:00",
-      "name": "Kesam with berries",
-      "ingredients": "1 box vanilla kesam (420g), frozen raspberries (50g), 1 banana, 25g monin fruit purée",
-      "macros": {
-        "cals": 500,
-        "carbs": 52,
-        "fat": 4.7,
-        "protein": 42
-      }
+  "name": "Kesam with Berries",
+  "ingredients": [
+    "1 box vanilla kesam (420g)",
+    "Frozen raspberries (50g)",
+    "1 banana",
+    "25g Monin fruit purée"
+  ],
+  "instructions": [
+    "Add the vanilla kesam to a bowl.",
+    "Top with frozen raspberries.",
+    "Slice the banana and add on top.",
+    "Drizzle with Monin fruit purée and serve."
+  ],
+  "macros": {
+    "per_100g": {
+      "cals": "92 kcal",
+      "carbs": "9.5 g",
+      "fat": "0.9 g",
+      "protein": "7.7 g"
+    },
+    "total": {
+      "cals": "500 kcal",
+      "carbs": "52 g",
+      "fat": "4.7 g",
+      "protein": "42 g"
     }
-  ]
+  }
 }

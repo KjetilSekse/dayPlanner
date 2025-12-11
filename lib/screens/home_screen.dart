@@ -28,28 +28,41 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _vibrateOn = true;
   Map<String, Menu> _menus = {};
   Map<String, Recipe> _recipes = {};
+  Map<MealCategory, Map<String, Recipe>> _categoryRecipes = {};
   Map<int, String> _selectedMenus = {};
   Map<String, String> _customTimes = {};
   Map<String, String> _mealReplacements = {}; // dayIdx-mealIdx -> recipeId
   Set<String> _completed = {};
   Set<String> _checkedIngredients = {};
   bool _loaded = false;
+  int _selectedMealCategory = 3; // 0=Breakfast, 1=Lunch, 2=Dinner, 3=Today
+  late PageController _pageController;
+  int _currentDayIdx = DateTime.now().weekday - 1;
 
   StorageService get _storage => widget.storage;
 
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(initialPage: _currentDayIdx);
     _load();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
     final menus = await _storage.loadMenus();
     final recipes = await _storage.loadRecipes();
+    final categoryRecipes = await _storage.loadAllCategoryRecipes();
 
     setState(() {
       _menus = menus;
       _recipes = recipes;
+      _categoryRecipes = categoryRecipes;
       _selectedMenus = _storage.loadSelectedMenus();
       _customTimes = _storage.loadCustomTimes();
       _mealReplacements = _storage.loadMealReplacements();
@@ -278,15 +291,41 @@ class _HomeScreenState extends State<HomeScreen> {
     final key = '$dayIdx-$mealIdx';
     final recipeId = _mealReplacements[key];
     if (recipeId == null) return null;
-    return _recipes[recipeId];
+    // Check in general recipes first, then in category recipes
+    if (_recipes.containsKey(recipeId)) {
+      return _recipes[recipeId];
+    }
+    // Search through category recipes
+    for (final categoryMap in _categoryRecipes.values) {
+      if (categoryMap.containsKey(recipeId)) {
+        return categoryMap[recipeId];
+      }
+    }
+    return null;
+  }
+
+  Map<String, Recipe> _getAllRecipesForCategory(MealCategory category) {
+    final allRecipes = <String, Recipe>{};
+    // Add category-specific recipes
+    final categoryMap = _categoryRecipes[category];
+    if (categoryMap != null) {
+      allRecipes.addAll(categoryMap);
+    }
+    // Also add general recipes
+    allRecipes.addAll(_recipes);
+    return allRecipes;
   }
 
   void _showRecipePicker(BuildContext context, int dayIdx, int mealIdx, String mealName) {
     final key = '$dayIdx-$mealIdx';
+    // Determine which category this meal belongs to (0=breakfast, 1=lunch, 2=dinner)
+    final category = MealCategory.values[mealIdx.clamp(0, 2)];
+    final availableRecipes = _getAllRecipesForCategory(category);
+
     RecipePicker.show(
       context: context,
       mealName: mealName,
-      recipes: _recipes,
+      recipes: availableRecipes,
       currentRecipeId: _mealReplacements[key],
       onRecipeSelected: (recipeId) async {
         setState(() {
@@ -301,6 +340,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  MealCategory get _currentCategory =>
+      _selectedMealCategory < 3 ? MealCategory.values[_selectedMealCategory] : MealCategory.breakfast;
+
   @override
   Widget build(BuildContext context) {
     if (!_loaded) {
@@ -309,11 +351,36 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
+    // Show PageView for Today tab, simple scaffold for cookbook tabs
+    if (_selectedMealCategory == 3) {
+      return _buildDayPageView();
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('${_currentCategory.name.capitalize()} Recipes'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () => _showSettings(context),
+          ),
+        ],
+      ),
+      body: _buildCookbook(),
+      bottomNavigationBar: _buildBottomNav(),
+    );
+  }
+
+  Widget _buildDayPageView() {
     return PageView.builder(
-      controller: PageController(initialPage: DateTime.now().weekday - 1),
+      controller: _pageController,
       itemCount: 7,
-      itemBuilder: (_, dayIdx) {
-        final meals = _getMealsForDay(dayIdx);
+      onPageChanged: (index) {
+        setState(() {
+          _currentDayIdx = index;
+        });
+      },
+      itemBuilder: (context, dayIdx) {
         final currentMenuId = _selectedMenus[dayIdx] ?? StorageService.menuIds.first;
         final currentMenuName = _menus[currentMenuId]?.name ?? currentMenuId;
 
@@ -327,16 +394,81 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          body: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: meals.length,
-            itemBuilder: (_, i) {
-              final meal = meals[i];
-              final mealId = '$dayIdx-$i';
-              final replacementRecipe = _getReplacementRecipe(dayIdx, i);
+          body: _buildTodaysMeals(dayIdx),
+          bottomNavigationBar: _buildBottomNav(),
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: () => _showMenuPicker(context, dayIdx),
+            icon: const Icon(Icons.restaurant_menu),
+            label: Text(currentMenuName),
+          ),
+        );
+      },
+    );
+  }
 
-              if (replacementRecipe != null) {
-                return RecipeCard(
+  Widget _buildBottomNav() {
+    return NavigationBar(
+      selectedIndex: _selectedMealCategory,
+      onDestinationSelected: (index) {
+        setState(() {
+          _selectedMealCategory = index;
+        });
+      },
+      destinations: const [
+        NavigationDestination(
+          icon: Icon(Icons.free_breakfast_outlined),
+          selectedIcon: Icon(Icons.free_breakfast),
+          label: 'Breakfast',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.lunch_dining_outlined),
+          selectedIcon: Icon(Icons.lunch_dining),
+          label: 'Lunch',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.dinner_dining_outlined),
+          selectedIcon: Icon(Icons.dinner_dining),
+          label: 'Dinner',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.today_outlined),
+          selectedIcon: Icon(Icons.today),
+          label: 'Today',
+        ),
+      ],
+    );
+  }
+
+  String _getMealLabel(int mealIdx) {
+    switch (mealIdx) {
+      case 0:
+        return 'Breakfast';
+      case 1:
+        return 'Lunch';
+      case 2:
+        return 'Dinner';
+      default:
+        return '';
+    }
+  }
+
+  Widget _buildTodaysMeals(int dayIdx) {
+    final meals = _getMealsForDay(dayIdx);
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: meals.length,
+      itemBuilder: (_, mealIdx) {
+        final meal = meals[mealIdx];
+        final mealId = '$dayIdx-$mealIdx';
+        final replacementRecipe = _getReplacementRecipe(dayIdx, mealIdx);
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Stack(
+            children: [
+              if (replacementRecipe != null)
+                RecipeCard(
                   recipe: replacementRecipe,
                   mealId: mealId,
                   time: meal.time,
@@ -344,32 +476,116 @@ class _HomeScreenState extends State<HomeScreen> {
                   checkedIngredients: _checkedIngredients,
                   onCompletedChanged: (v) => _toggleCompleted(mealId, v),
                   onIngredientChanged: _toggleIngredient,
-                  onTimeEdit: () => _editMealTime(context, dayIdx, i, meal.time),
-                  onReplace: () => _showRecipePicker(context, dayIdx, i, meal.name),
-                );
-              }
-
-              return MealCard(
-                meal: meal,
-                mealId: mealId,
-                completed: _completed.contains(mealId),
-                checkedIngredients: _checkedIngredients,
-                onCompletedChanged: (v) => _toggleCompleted(mealId, v),
-                onIngredientChanged: _toggleIngredient,
-                onTimeEdit: () => _editMealTime(context, dayIdx, i, meal.time),
-                onReplace: () => _showRecipePicker(context, dayIdx, i, meal.name),
-              );
-            },
-          ),
-          floatingActionButton: Builder(
-            builder: (ctx) => FloatingActionButton.extended(
-              onPressed: () => _showMenuPicker(ctx, dayIdx),
-              icon: const Icon(Icons.restaurant_menu),
-              label: Text(currentMenuName),
-            ),
+                  onTimeEdit: () => _editMealTime(context, dayIdx, mealIdx, meal.time),
+                  onReplace: () => _showRecipePicker(context, dayIdx, mealIdx, meal.name),
+                )
+              else
+                MealCard(
+                  meal: meal,
+                  mealId: mealId,
+                  completed: _completed.contains(mealId),
+                  checkedIngredients: _checkedIngredients,
+                  onCompletedChanged: (v) => _toggleCompleted(mealId, v),
+                  onIngredientChanged: _toggleIngredient,
+                  onTimeEdit: () => _editMealTime(context, dayIdx, mealIdx, meal.time),
+                  onReplace: () => _showRecipePicker(context, dayIdx, mealIdx, meal.name),
+                ),
+              Positioned(
+                top: 8,
+                right: 16,
+                child: Text(
+                  _getMealLabel(mealIdx),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },
     );
+  }
+
+  Widget _buildCookbook() {
+    final categoryRecipes = _categoryRecipes[_currentCategory] ?? {};
+    final todayIdx = DateTime.now().weekday - 1;
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Text(
+          '${_currentCategory.name.capitalize()} Recipes',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (categoryRecipes.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('No recipes in this category yet'),
+            ),
+          )
+        else
+          ...categoryRecipes.entries.map((entry) {
+            final recipe = entry.value;
+            final recipeId = 'cookbook-${entry.key}';
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: RecipeCard(
+                recipe: recipe,
+                mealId: recipeId,
+                time: _getDefaultTimeForCategory(_currentCategory),
+                completed: _completed.contains(recipeId),
+                checkedIngredients: _checkedIngredients,
+                onCompletedChanged: (v) => _toggleCompleted(recipeId, v),
+                onIngredientChanged: _toggleIngredient,
+                onTimeEdit: () {},
+                onReplace: () => _selectRecipeForMeal(todayIdx, _selectedMealCategory, entry.key),
+                replaceButtonText: 'Set for today',
+                showReplaceButtonOutside: true,
+              ),
+            );
+          }),
+      ],
+    );
+  }
+
+  String _getDefaultTimeForCategory(MealCategory category) {
+    switch (category) {
+      case MealCategory.breakfast:
+        return '08:00';
+      case MealCategory.lunch:
+        return '12:00';
+      case MealCategory.dinner:
+        return '18:00';
+    }
+  }
+
+  void _selectRecipeForMeal(int dayIdx, int mealIdx, String recipeId) async {
+    final key = '$dayIdx-$mealIdx';
+    setState(() {
+      _mealReplacements[key] = recipeId;
+    });
+    await _storage.saveMealReplacements(_mealReplacements);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Recipe set for today\'s ${_currentCategory.name}'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+}
+
+extension StringExtension on String {
+  String capitalize() {
+    if (isEmpty) return this;
+    return '${this[0].toUpperCase()}${substring(1)}';
   }
 }

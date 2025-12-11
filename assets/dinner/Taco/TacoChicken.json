@@ -1,0 +1,35 @@
+{
+  "name": "Chicken Taco",
+  "ingredients": [
+    "400g chicken breast strips",
+    "2 tortillas (65g each)",
+    "50g salsa",
+    "20g cucumber, diced",
+    "20g apple, diced",
+    "40g guacamole",
+    "20g tortilla chips",
+    "1 tbsp taco seasoning",
+    "1 tbsp oil"
+  ],
+  "instructions": [
+    "Season chicken strips with taco seasoning.",
+    "Heat oil in a pan and cook chicken until golden and cooked through.",
+    "Warm tortillas in a dry pan or microwave.",
+    "Assemble tacos with chicken, salsa, cucumber, apple, and guacamole.",
+    "Serve with tortilla chips on the side."
+  ],
+  "macros": {
+    "per_100g": {
+      "cals": "165 kcal",
+      "carbs": "12 g",
+      "fat": "6 g",
+      "protein": "18 g"
+    },
+    "total": {
+      "cals": "850 kcal",
+      "carbs": "62 g",
+      "fat": "31 g",
+      "protein": "92 g"
+    }
+  }
+}

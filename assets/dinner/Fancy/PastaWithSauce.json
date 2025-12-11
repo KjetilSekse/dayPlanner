@@ -1,0 +1,35 @@
+{
+  "name": "Pasta with Tomato Sauce",
+  "ingredients": [
+    "200g pasta",
+    "1 can crushed tomatoes (400g)",
+    "2 cloves garlic, minced",
+    "1 tbsp olive oil",
+    "1 tsp dried basil",
+    "1 tsp dried oregano",
+    "Salt and pepper to taste",
+    "Parmesan cheese for topping"
+  ],
+  "instructions": [
+    "Cook pasta according to package instructions, drain and set aside.",
+    "Heat olive oil in a pan over medium heat.",
+    "Add minced garlic and sauté for 1 minute until fragrant.",
+    "Add crushed tomatoes, basil, and oregano. Simmer for 10-15 minutes.",
+    "Season with salt and pepper to taste.",
+    "Toss pasta with the sauce and serve with grated Parmesan."
+  ],
+  "macros": {
+    "per_100g": {
+      "cals": "130 kcal",
+      "carbs": "22 g",
+      "fat": "3 g",
+      "protein": "4.5 g"
+    },
+    "total": {
+      "cals": "650 kcal",
+      "carbs": "110 g",
+      "fat": "15 g",
+      "protein": "22 g"
+    }
+  }
+}

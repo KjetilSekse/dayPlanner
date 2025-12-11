@@ -1,0 +1,32 @@
+{
+  "name": "Protein Pancakes",
+  "ingredients": [
+    "1 scoop protein powder (30g)",
+    "1 egg",
+    "50g oats",
+    "100ml milk",
+    "1 banana",
+    "Butter for frying"
+  ],
+  "instructions": [
+    "Blend oats, protein powder, egg, milk, and banana until smooth.",
+    "Heat a non-stick pan with a little butter over medium heat.",
+    "Pour small amounts of batter to form pancakes.",
+    "Cook until bubbles form, then flip and cook the other side.",
+    "Serve with toppings of choice (berries, syrup, nut butter)."
+  ],
+  "macros": {
+    "per_100g": {
+      "cals": "145 kcal",
+      "carbs": "15 g",
+      "fat": "4 g",
+      "protein": "12 g"
+    },
+    "total": {
+      "cals": "450 kcal",
+      "carbs": "48 g",
+      "fat": "12 g",
+      "protein": "38 g"
+    }
+  }
+}

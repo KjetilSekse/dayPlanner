@@ -11,6 +11,8 @@ class RecipeCard extends StatelessWidget {
   final void Function(String ingredientId, bool? value) onIngredientChanged;
   final VoidCallback onTimeEdit;
   final VoidCallback onReplace;
+  final String replaceButtonText;
+  final bool showReplaceButtonOutside;
 
   const RecipeCard({
     super.key,
@@ -23,6 +25,8 @@ class RecipeCard extends StatelessWidget {
     required this.onIngredientChanged,
     required this.onTimeEdit,
     required this.onReplace,
+    this.replaceButtonText = 'Replace',
+    this.showReplaceButtonOutside = false,
   });
 
   @override
@@ -43,19 +47,30 @@ class RecipeCard extends StatelessWidget {
           recipe.name,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
-        subtitle: GestureDetector(
-          onTap: onTimeEdit,
-          child: Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(time, style: const TextStyle(fontSize: 16)),
-                const SizedBox(width: 8),
-                const Icon(Icons.edit, size: 18),
-              ],
+        subtitle: Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: onTimeEdit,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(time, style: const TextStyle(fontSize: 16)),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.edit, size: 18),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ),
+            if (showReplaceButtonOutside)
+              TextButton(
+                onPressed: onReplace,
+                child: Text(replaceButtonText),
+              ),
+          ],
         ),
         children: [
           Padding(
@@ -69,12 +84,9 @@ class RecipeCard extends StatelessWidget {
                   child: TextButton.icon(
                     onPressed: onReplace,
                     icon: const Icon(Icons.swap_horiz, size: 18),
-                    label: const Text('Replace'),
+                    label: Text(replaceButtonText),
                   ),
                 ),
-                // Macros section
-                _MacrosSection(recipe: recipe),
-                const SizedBox(height: 16),
                 // Ingredients section
                 _IngredientsSection(
                   recipe: recipe,
@@ -85,6 +97,9 @@ class RecipeCard extends StatelessWidget {
                 const SizedBox(height: 16),
                 // Instructions section
                 _InstructionsSection(recipe: recipe),
+                const SizedBox(height: 16),
+                // Macros section
+                _MacrosSection(recipe: recipe),
               ],
             ),
           ),

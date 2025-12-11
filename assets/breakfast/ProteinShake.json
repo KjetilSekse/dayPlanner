@@ -1,0 +1,28 @@
+{
+  "name": "Protein Shake",
+  "ingredients": [
+    "400ml light milk",
+    "1 banana",
+    "40g casein protein 80%"
+  ],
+  "instructions": [
+    "Add light milk to a blender.",
+    "Peel and add the banana.",
+    "Add casein protein powder.",
+    "Blend until smooth and serve."
+  ],
+  "macros": {
+    "per_100g": {
+      "cals": "75 kcal",
+      "carbs": "8 g",
+      "fat": "1 g",
+      "protein": "9 g"
+    },
+    "total": {
+      "cals": "410 kcal",
+      "carbs": "45 g",
+      "fat": "5 g",
+      "protein": "48 g"
+    }
+  }
+}
