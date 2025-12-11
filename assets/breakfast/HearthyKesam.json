@@ -1,0 +1,16 @@
+{
+  "name": "HearthyKesam",
+  "meal": [
+    {
+      "time": "08:00",
+      "name": "Kesam with berries",
+      "ingredients": "1 box vanilla kesam (420g), frozen raspberries (50g), 1 banana, 25g monin fruit purée",
+      "macros": {
+        "cals": 500,
+        "carbs": 52,
+        "fat": 4.7,
+        "protein": 42
+      }
+    }
+  ]
+}

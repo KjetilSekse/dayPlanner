@@ -1,0 +1,11 @@
+{
+  "extends": "baseRecipe.json",
+  "name": "Chicken Taco",
+  "meat": "chicken breast strips 400g",
+  "macros": {
+    "cals": "",
+    "carbs": "",
+    "fat": "",
+    "protein": ""
+  }
+}
