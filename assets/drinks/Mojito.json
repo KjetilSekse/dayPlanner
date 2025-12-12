@@ -1,0 +1,35 @@
+{
+  "name": "Mojito",
+  "ingredients": [
+    "1 shot glass white rum",
+    "1/2 shot glass fresh lime juice",
+    "3/4 shot glass of mint syrup",
+    "Soda water/Lemon based soda to taste (150ml recommended)",
+    "1/3 shot glass of fruit purée of choice",
+    "Ice cubes",
+    "Lime wedge if feeling fancy"
+  ],
+  "instructions": [
+    "Add mint leaves and sugar to a highball glass.",
+    "Muddle gently to release mint oils, being careful not to tear the leaves.",
+    "Add lime juice and stir to dissolve sugar.",
+    "Fill glass with ice cubes.",
+    "Pour in the white rum.",
+    "Top with soda water and stir gently.",
+    "Garnish with a lime wedge and mint sprig."
+  ],
+  "macros": {
+    "per_100ml": {
+      "cals": "75",
+      "carbs": "11.4",
+      "fat": "0",
+      "protein": "0"
+    },
+    "total": {
+      "cals": "170",
+      "carbs": "26",
+      "fat": "0",
+      "protein": "0"
+    }
+  }
+}

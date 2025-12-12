@@ -1,0 +1,33 @@
+{
+  "name": "Amaretto Sour",
+  "ingredients": [
+    "3/5 shot glass amaretto liqueur OR 1/2 shot glass amaretto syrup",
+    "2/5 shot glass bourbon whiskey (or 1/2 shot if using syrup)",
+    "2/5 shot glass fresh lemon juice",
+    "1/5 shot glass simple syrup (reduce to 1/10 shot if using amaretto syrup)",
+    "1 egg white (optional, for foam)",
+    "Ice cubes",
+    "Maraschino cherry and lemon slice for garnish"
+  ],
+  "instructions": [
+    "Add amaretto liqueur or syrup, bourbon, lemon juice, simple syrup, and egg white (if using) to a shaker.",
+    "Dry shake (without ice) for 10 seconds if using egg white.",
+    "Add ice to the shaker and shake vigorously for 15 seconds.",
+    "Strain into a rocks glass filled with fresh ice.",
+    "Garnish with a maraschino cherry and lemon slice."
+  ],
+  "macros": {
+    "per_100ml": {
+      "cals": "175",
+      "carbs": "18",
+      "fat": "0",
+      "protein": "3"
+    },
+    "total": {
+      "cals": "165",
+      "carbs": "17",
+      "fat": "0",
+      "protein": "3"
+    }
+  }
+}

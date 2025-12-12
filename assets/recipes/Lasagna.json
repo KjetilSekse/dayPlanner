@@ -1,0 +1,41 @@
+{
+  "name": "Classic Beef and Spinach Lasagna",
+  "ingredients": [
+    "800 g minced beef (ground beef)",
+    "2 large onions, finely chopped",
+    "2-3 carrots, finely diced or grated",
+    "3 cloves garlic, minced",
+    "2 jars (approx. 500 g each) tomato-based pasta sauce",
+    "2-3 jars (approx. 470 g each) béchamel sauce (e.g., Dolmio)",
+    "200 g fresh or frozen spinach (thawed and squeezed dry if frozen)",
+    "Lasagna pasta sheets (fresh or no-boil, approx. 250-300 g)",
+    "Salt, pepper, and dried oregano (to taste)",
+    "Optional: 150-200 g grated mozzarella or parmesan for topping"
+  ],
+  "instructions": [
+    "Preheat oven to 190°C (375°F).",
+    "In a large pan, brown the minced beef over medium-high heat. Drain excess fat if needed.",
+    "Add chopped onions, carrots, and garlic. Cook for 5-7 minutes until softened.",
+    "Stir in the spinach and cook until wilted (if using fresh) or heated through.",
+    "Pour in the two jars of tomato sauce, season generously with salt, pepper, and oregano. Simmer for 10 minutes.",
+    "In a large baking dish, start layering: spread a thin layer of meat sauce on the bottom, cover with lasagna sheets, then a layer of béchamel sauce, followed by more meat sauce. Repeat layers (usually 3-4 layers total), finishing with a generous layer of béchamel on top.",
+    "Optional: sprinkle grated cheese over the final béchamel layer.",
+    "Cover with foil and bake for 30 minutes. Remove foil and bake an additional 15-20 minutes until golden and bubbling.",
+    "Let rest for 10-15 minutes before cutting and serving."
+  ],
+  "macros": {
+    "per_100g": {
+      "cals": "132 kcal",
+      "carbs": "11 g",
+      "fat": "7.4 g",
+      "protein": "6.5 g"
+    },
+    "total": {
+      "cals": "4500 kcal (entire dish, serves 8-12)",
+      "carbs": "380 g",
+      "fat": "250 g",
+      "protein": "220 g"
+    }
+  }
+}
+

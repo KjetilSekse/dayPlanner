@@ -1,0 +1,33 @@
+{
+  "name": "Gin & Tonic",
+  "ingredients": [
+    "1 1/4 shot glass gin",
+    "1/4 shot glass fresh lime juice",
+    "3 3/4 shot glass tonic water",
+    "Ice cubes",
+    "Lime wedge for garnish",
+    "Optional: cucumber slice or fresh herbs"
+  ],
+  "instructions": [
+    "Fill a highball glass with ice cubes.",
+    "Pour gin and lime juice over the ice.",
+    "Top with tonic water.",
+    "Stir gently to combine.",
+    "Garnish with a lime wedge.",
+    "Add optional cucumber or herbs if desired."
+  ],
+  "macros": {
+    "per_100ml": {
+      "cals": "54",
+      "carbs": "0.5",
+      "fat": "0",
+      "protein": "0"
+    },
+    "total": {
+      "cals": "113",
+      "carbs": "1",
+      "fat": "0",
+      "protein": "0"
+    }
+  }
+}

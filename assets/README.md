@@ -1,0 +1,1 @@
+All recipe macros are given as per 100g

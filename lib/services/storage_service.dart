@@ -16,6 +16,14 @@ class StorageService {
     'BarbequeChickenWithTortellini',
   ];
 
+  static const _drinkFiles = [
+    'Mojito',
+    'GinAndTonic',
+    'MaiTai',
+    'WhiskeySour',
+    'AmarettoSour',
+  ];
+
   // Recipes organized by meal category
   static const Map<MealCategory, List<String>> _categoryRecipes = {
     MealCategory.breakfast: [
@@ -70,6 +78,20 @@ class StorageService {
       recipes[id] = Recipe.fromJson(id, data);
     }
     return recipes;
+  }
+
+  Future<Map<String, Recipe>> loadDrinks() async {
+    final drinks = <String, Recipe>{};
+    for (final id in _drinkFiles) {
+      try {
+        final jsonString = await rootBundle.loadString('assets/drinks/$id.json');
+        final data = json.decode(jsonString) as Map<String, dynamic>;
+        drinks[id] = Recipe.fromJson(id, data);
+      } catch (e) {
+        debugPrint('Failed to load drink $id: $e');
+      }
+    }
+    return drinks;
   }
 
   // Load recipes by meal category

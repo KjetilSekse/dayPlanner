@@ -29,13 +29,14 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, Menu> _menus = {};
   Map<String, Recipe> _recipes = {};
   Map<MealCategory, Map<String, Recipe>> _categoryRecipes = {};
+  Map<String, Recipe> _drinks = {};
   Map<int, String> _selectedMenus = {};
   Map<String, String> _customTimes = {};
   Map<String, String> _mealReplacements = {}; // dayIdx-mealIdx -> recipeId
   Set<String> _completed = {};
   Set<String> _checkedIngredients = {};
   bool _loaded = false;
-  int _selectedMealCategory = 3; // 0=Breakfast, 1=Lunch, 2=Dinner, 3=Today
+  int _selectedMealCategory = 4; // 0=Breakfast, 1=Lunch, 2=Dinner, 3=Drinks, 4=Today
   late PageController _pageController;
   int _currentDayIdx = DateTime.now().weekday - 1;
 
@@ -58,11 +59,13 @@ class _HomeScreenState extends State<HomeScreen> {
     final menus = await _storage.loadMenus();
     final recipes = await _storage.loadRecipes();
     final categoryRecipes = await _storage.loadAllCategoryRecipes();
+    final drinks = await _storage.loadDrinks();
 
     setState(() {
       _menus = menus;
       _recipes = recipes;
       _categoryRecipes = categoryRecipes;
+      _drinks = drinks;
       _selectedMenus = _storage.loadSelectedMenus();
       _customTimes = _storage.loadCustomTimes();
       _mealReplacements = _storage.loadMealReplacements();
@@ -352,8 +355,25 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     // Show PageView for Today tab, simple scaffold for cookbook tabs
-    if (_selectedMealCategory == 3) {
+    if (_selectedMealCategory == 4) {
       return _buildDayPageView();
+    }
+
+    // Handle Drinks tab (index 3)
+    if (_selectedMealCategory == 3) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Drinks'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: () => _showSettings(context),
+            ),
+          ],
+        ),
+        body: _buildDrinks(),
+        bottomNavigationBar: _buildBottomNav(),
+      );
     }
 
     return Scaffold(
@@ -429,6 +449,11 @@ class _HomeScreenState extends State<HomeScreen> {
           icon: Icon(Icons.dinner_dining_outlined),
           selectedIcon: Icon(Icons.dinner_dining),
           label: 'Dinner',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.local_bar_outlined),
+          selectedIcon: Icon(Icons.local_bar),
+          label: 'Drinks',
         ),
         NavigationDestination(
           icon: Icon(Icons.today_outlined),
@@ -564,6 +589,48 @@ class _HomeScreenState extends State<HomeScreen> {
       case MealCategory.dinner:
         return '18:00';
     }
+  }
+
+  Widget _buildDrinks() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Text(
+          'Drinks',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (_drinks.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('No drinks available yet'),
+            ),
+          )
+        else
+          ..._drinks.entries.map((entry) {
+            final drink = entry.value;
+            final drinkId = 'drink-${entry.key}';
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: RecipeCard(
+                recipe: drink,
+                mealId: drinkId,
+                time: '20:00',
+                completed: _completed.contains(drinkId),
+                checkedIngredients: _checkedIngredients,
+                onCompletedChanged: (v) => _toggleCompleted(drinkId, v),
+                onIngredientChanged: _toggleIngredient,
+                onTimeEdit: () {},
+                onReplace: () {},
+                showReplaceButtonOutside: false,
+              ),
+            );
+          }),
+      ],
+    );
   }
 
   void _selectRecipeForMeal(int dayIdx, int mealIdx, String recipeId) async {

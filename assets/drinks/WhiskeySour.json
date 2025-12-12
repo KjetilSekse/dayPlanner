@@ -1,0 +1,34 @@
+{
+  "name": "Whiskey Sour",
+  "ingredients": [
+    "1 shot glass bourbon or whiskey",
+    "1/2 shot glass fresh lemon juice",
+    "1/3rd shot glass simple syrup",
+    "1 egg white",
+    "Ice cubes",
+    "Maraschino cherry and orange slice for garnish",
+    "Angostura bitters (optional, 2-3 dashes)"
+  ],
+  "instructions": [
+    "Add whiskey, lemon juice, simple syrup, and egg white (if using) to a shaker.",
+    "Dry shake (without ice) for 10 seconds if using egg white.",
+    "Add ice to the shaker and shake vigorously for 15 seconds.",
+    "Strain into a rocks glass filled with fresh ice.",
+    "Garnish with a cherry and orange slice.",
+    "Add 2-3 dashes of Angostura bitters on top of the foam if desired."
+  ],
+  "macros": {
+    "per_100ml": {
+      "cals": "125",
+      "carbs": "9",
+      "fat": "0",
+      "protein": "1.5"
+    },
+    "total": {
+      "cals": "175",
+      "carbs": "13",
+      "fat": "0",
+      "protein": "2"
+    }
+  }
+}

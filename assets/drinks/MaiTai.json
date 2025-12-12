@@ -1,0 +1,33 @@
+{
+  "name": "Mai Tai",
+  "ingredients": [
+    "1 1/8 shot glass white rum",
+    "3/8 shot glass dark rum",
+    "3/4 shot glass orange curaçao",
+    "3/4 shot glass fresh lime juice",
+    "3/8 shot glass orgeat syrup (almond syrup)",
+    "Crushed ice",
+    "Mint sprig and lime wheel for garnish"
+  ],
+  "instructions": [
+    "Add white rum, orange curaçao, lime juice, and orgeat syrup to a shaker with ice.",
+    "Shake well for 10-15 seconds.",
+    "Strain into a rocks glass filled with crushed ice.",
+    "Float dark rum on top by pouring it slowly over the back of a spoon.",
+    "Garnish with a mint sprig and lime wheel."
+  ],
+  "macros": {
+    "per_100ml": {
+      "cals": "130",
+      "carbs": "12",
+      "fat": "0.1",
+      "protein": "0.1"
+    },
+    "total": {
+      "cals": "234",
+      "carbs": "22",
+      "fat": "0.2",
+      "protein": "0.2"
+    }
+  }
+}
