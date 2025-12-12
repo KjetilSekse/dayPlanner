@@ -14,6 +14,7 @@ class StorageService {
     'PastaParmesan',
     'MarinatedPorkWithPotatos',
     'BarbequeChickenWithTortellini',
+    'ChiliConCarne',
   ];
 
   static const _drinkFiles = [
@@ -22,6 +23,8 @@ class StorageService {
     'MaiTai',
     'WhiskeySour',
     'AmarettoSour',
+    'GrevensCiderSugarFree',
+    'BulmersRedBerryLime',
   ];
 
   // Recipes organized by meal category
@@ -62,35 +65,52 @@ class StorageService {
 
   Future<Map<String, Menu>> loadMenus() async {
     final menus = <String, Menu>{};
+    debugPrint('Loading menus: $_menuFiles');
     for (final id in _menuFiles) {
-      final jsonString = await rootBundle.loadString('assets/menus/$id.json');
-      final data = json.decode(jsonString) as Map<String, dynamic>;
-      menus[id] = Menu.fromJson(id, data);
+      try {
+        final jsonString = await rootBundle.loadString('assets/menus/$id.json');
+        final data = json.decode(jsonString) as Map<String, dynamic>;
+        menus[id] = Menu.fromJson(id, data);
+        debugPrint('Successfully loaded menu: $id');
+      } catch (e) {
+        debugPrint('Failed to load menu $id: $e');
+      }
     }
+    debugPrint('Total menus loaded: ${menus.length}');
     return menus;
   }
 
   Future<Map<String, Recipe>> loadRecipes() async {
     final recipes = <String, Recipe>{};
+    debugPrint('Loading recipes: $_recipeFiles');
     for (final id in _recipeFiles) {
-      final jsonString = await rootBundle.loadString('assets/recipes/$id.json');
-      final data = json.decode(jsonString) as Map<String, dynamic>;
-      recipes[id] = Recipe.fromJson(id, data);
+      try {
+        final jsonString = await rootBundle.loadString('assets/recipes/$id.json');
+        final data = json.decode(jsonString) as Map<String, dynamic>;
+        recipes[id] = Recipe.fromJson(id, data);
+        debugPrint('Successfully loaded recipe: $id');
+      } catch (e) {
+        debugPrint('Failed to load recipe $id: $e');
+      }
     }
+    debugPrint('Total recipes loaded: ${recipes.length}');
     return recipes;
   }
 
   Future<Map<String, Recipe>> loadDrinks() async {
     final drinks = <String, Recipe>{};
+    debugPrint('Loading drinks: $_drinkFiles');
     for (final id in _drinkFiles) {
       try {
         final jsonString = await rootBundle.loadString('assets/drinks/$id.json');
         final data = json.decode(jsonString) as Map<String, dynamic>;
         drinks[id] = Recipe.fromJson(id, data);
+        debugPrint('Successfully loaded drink: $id');
       } catch (e) {
         debugPrint('Failed to load drink $id: $e');
       }
     }
+    debugPrint('Total drinks loaded: ${drinks.length}');
     return drinks;
   }
 
@@ -214,5 +234,48 @@ class StorageService {
 
   Future<void> saveCheckedIngredients(Set<String> checked) async {
     await prefs.setStringList('checkedIngredients', checked.toList());
+  }
+
+  // Daily drinks tracking (dayIdx -> drinkId -> list of timestamps)
+  Map<int, Map<String, List<String>>> loadDailyDrinks() {
+    final drinksJson = prefs.getString('dailyDrinks');
+    if (drinksJson == null) return {};
+
+    try {
+      final decoded = json.decode(drinksJson) as Map<String, dynamic>;
+      final result = <int, Map<String, List<String>>>{};
+
+      for (final entry in decoded.entries) {
+        final dayIdx = int.parse(entry.key);
+        final drinksMap = <String, List<String>>{};
+
+        for (final drinkEntry in (entry.value as Map<String, dynamic>).entries) {
+          final drinkId = drinkEntry.key;
+          final value = drinkEntry.value;
+
+          // Migration: Handle old format (int count) vs new format (list of timestamps)
+          if (value is int) {
+            // Old format: convert count to list of timestamps with placeholder times
+            drinksMap[drinkId] = List.generate(value, (i) => '12:00');
+          } else if (value is List) {
+            // New format: list of timestamps
+            drinksMap[drinkId] = value.map((t) => t as String).toList();
+          }
+        }
+
+        result[dayIdx] = drinksMap;
+      }
+      return result;
+    } catch (e) {
+      debugPrint('Error loading daily drinks, resetting: $e');
+      // If there's an error, clear the corrupted data
+      prefs.remove('dailyDrinks');
+      return {};
+    }
+  }
+
+  Future<void> saveDailyDrinks(Map<int, Map<String, List<String>>> dailyDrinks) async {
+    final encoded = dailyDrinks.map((k, v) => MapEntry(k.toString(), v));
+    await prefs.setString('dailyDrinks', json.encode(encoded));
   }
 }

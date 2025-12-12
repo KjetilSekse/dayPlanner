@@ -17,17 +17,17 @@
     "Garnish with a mint sprig and lime wheel."
   ],
   "macros": {
-    "per_100ml": {
-      "cals": "130",
-      "carbs": "12",
-      "fat": "0.1",
-      "protein": "0.1"
+    "per_100g": {
+      "cals": "205",
+      "carbs": "14",
+      "fat": "0",
+      "protein": "0"
     },
     "total": {
-      "cals": "234",
-      "carbs": "22",
-      "fat": "0.2",
-      "protein": "0.2"
+      "cals": "276",
+      "carbs": "19",
+      "fat": "0",
+      "protein": "0"
     }
   }
 }

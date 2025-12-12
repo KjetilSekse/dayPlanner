@@ -35,6 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, String> _mealReplacements = {}; // dayIdx-mealIdx -> recipeId
   Set<String> _completed = {};
   Set<String> _checkedIngredients = {};
+  Map<int, Map<String, List<String>>> _dailyDrinks = {}; // dayIdx -> drinkId -> list of timestamps
   bool _loaded = false;
   int _selectedMealCategory = 4; // 0=Breakfast, 1=Lunch, 2=Dinner, 3=Drinks, 4=Today
   late PageController _pageController;
@@ -56,27 +57,40 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _load() async {
-    final menus = await _storage.loadMenus();
-    final recipes = await _storage.loadRecipes();
-    final categoryRecipes = await _storage.loadAllCategoryRecipes();
-    final drinks = await _storage.loadDrinks();
+    try {
+      final menus = await _storage.loadMenus();
+      final recipes = await _storage.loadRecipes();
+      final categoryRecipes = await _storage.loadAllCategoryRecipes();
+      final drinks = await _storage.loadDrinks();
 
-    setState(() {
-      _menus = menus;
-      _recipes = recipes;
-      _categoryRecipes = categoryRecipes;
-      _drinks = drinks;
-      _selectedMenus = _storage.loadSelectedMenus();
-      _customTimes = _storage.loadCustomTimes();
-      _mealReplacements = _storage.loadMealReplacements();
-      _notifOn = _storage.notificationsEnabled;
-      _vibrateOn = _storage.vibrationEnabled;
-      _completed = _storage.loadCompleted();
-      _checkedIngredients = _storage.loadCheckedIngredients();
-      _loaded = true;
-    });
+      print('Drinks loaded in home screen: ${drinks.length}');
+      print('Drink keys: ${drinks.keys.toList()}');
 
-    if (_notifOn) _scheduleNotifications();
+      setState(() {
+        _menus = menus;
+        _recipes = recipes;
+        _categoryRecipes = categoryRecipes;
+        _drinks = drinks;
+        _selectedMenus = _storage.loadSelectedMenus();
+        _customTimes = _storage.loadCustomTimes();
+        _mealReplacements = _storage.loadMealReplacements();
+        _notifOn = _storage.notificationsEnabled;
+        _vibrateOn = _storage.vibrationEnabled;
+        _completed = _storage.loadCompleted();
+        _checkedIngredients = _storage.loadCheckedIngredients();
+        _dailyDrinks = _storage.loadDailyDrinks();
+        _loaded = true;
+      });
+
+      if (_notifOn) _scheduleNotifications();
+    } catch (e, stackTrace) {
+      print('Error loading data: $e');
+      print('Stack trace: $stackTrace');
+      // Still mark as loaded to prevent infinite loading, but with empty data
+      setState(() {
+        _loaded = true;
+      });
+    }
   }
 
   List<Meal> _getMealsForDay(int dayIdx) {
@@ -314,8 +328,10 @@ class _HomeScreenState extends State<HomeScreen> {
     if (categoryMap != null) {
       allRecipes.addAll(categoryMap);
     }
-    // Also add general recipes
-    allRecipes.addAll(_recipes);
+    // Only add general recipes for dinner category
+    if (category == MealCategory.dinner) {
+      allRecipes.addAll(_recipes);
+    }
     return allRecipes;
   }
 
@@ -479,58 +495,220 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildTodaysMeals(int dayIdx) {
     final meals = _getMealsForDay(dayIdx);
+    final dayDrinks = _dailyDrinks[dayIdx] ?? {};
 
-    return ListView.builder(
+    return ListView(
       padding: const EdgeInsets.all(16),
-      itemCount: meals.length,
-      itemBuilder: (_, mealIdx) {
-        final meal = meals[mealIdx];
-        final mealId = '$dayIdx-$mealIdx';
-        final replacementRecipe = _getReplacementRecipe(dayIdx, mealIdx);
+      children: [
+        // Regular meals
+        ...meals.asMap().entries.map((entry) {
+          final mealIdx = entry.key;
+          final meal = entry.value;
+          final mealId = '$dayIdx-$mealIdx';
+          final replacementRecipe = _getReplacementRecipe(dayIdx, mealIdx);
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Stack(
-            children: [
-              if (replacementRecipe != null)
-                RecipeCard(
-                  recipe: replacementRecipe,
-                  mealId: mealId,
-                  time: meal.time,
-                  completed: _completed.contains(mealId),
-                  checkedIngredients: _checkedIngredients,
-                  onCompletedChanged: (v) => _toggleCompleted(mealId, v),
-                  onIngredientChanged: _toggleIngredient,
-                  onTimeEdit: () => _editMealTime(context, dayIdx, mealIdx, meal.time),
-                  onReplace: () => _showRecipePicker(context, dayIdx, mealIdx, meal.name),
-                )
-              else
-                MealCard(
-                  meal: meal,
-                  mealId: mealId,
-                  completed: _completed.contains(mealId),
-                  checkedIngredients: _checkedIngredients,
-                  onCompletedChanged: (v) => _toggleCompleted(mealId, v),
-                  onIngredientChanged: _toggleIngredient,
-                  onTimeEdit: () => _editMealTime(context, dayIdx, mealIdx, meal.time),
-                  onReplace: () => _showRecipePicker(context, dayIdx, mealIdx, meal.name),
-                ),
-              Positioned(
-                top: 8,
-                right: 16,
-                child: Text(
-                  _getMealLabel(mealIdx),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Stack(
+              children: [
+                if (replacementRecipe != null)
+                  RecipeCard(
+                    recipe: replacementRecipe,
+                    mealId: mealId,
+                    time: meal.time,
+                    completed: _completed.contains(mealId),
+                    checkedIngredients: _checkedIngredients,
+                    onCompletedChanged: (v) => _toggleCompleted(mealId, v),
+                    onIngredientChanged: _toggleIngredient,
+                    onTimeEdit: () => _editMealTime(context, dayIdx, mealIdx, meal.time),
+                    onReplace: () => _showRecipePicker(context, dayIdx, mealIdx, meal.name),
+                  )
+                else
+                  MealCard(
+                    meal: meal,
+                    mealId: mealId,
+                    completed: _completed.contains(mealId),
+                    checkedIngredients: _checkedIngredients,
+                    onCompletedChanged: (v) => _toggleCompleted(mealId, v),
+                    onIngredientChanged: _toggleIngredient,
+                    onTimeEdit: () => _editMealTime(context, dayIdx, mealIdx, meal.time),
+                    onReplace: () => _showRecipePicker(context, dayIdx, mealIdx, meal.name),
                   ),
+                Positioned(
+                  top: 8,
+                  right: 16,
+                  child: Text(
+                    _getMealLabel(mealIdx),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+        // Drinks section
+        _buildDrinksSection(dayIdx, dayDrinks),
+      ],
+    );
+  }
+
+  Widget _buildDrinksSection(int dayIdx, Map<String, List<String>> dayDrinks) {
+    // Calculate total calories and carbs for this day
+    int totalCalories = 0;
+    int totalCarbs = 0;
+
+    for (final entry in dayDrinks.entries) {
+      final drinkId = entry.key;
+      final timestamps = entry.value;
+      final drink = _drinks[drinkId];
+      if (drink != null) {
+        totalCalories += int.parse(drink.total.cals) * timestamps.length;
+        totalCarbs += (double.parse(drink.total.carbs) * timestamps.length).round();
+      }
+    }
+
+    return Card(
+      child: ExpansionTile(
+        leading: const Icon(Icons.local_bar),
+        title: Row(
+          children: [
+            const Text('Drinks'),
+            if (dayDrinks.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Text(
+                '($totalCalories cal)',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
-          ),
-        );
-      },
+          ],
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (dayDrinks.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${dayDrinks.values.fold(0, (sum, timestamps) => sum + timestamps.length)}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                ),
+              ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline),
+              onPressed: () => _showDrinkPicker(context, dayIdx),
+              tooltip: 'Add drink',
+            ),
+          ],
+        ),
+        children: [
+          if (dayDrinks.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('No drinks added yet. Tap + to add.'),
+            )
+          else ...[
+            // Total summary row
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Total',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  Text(
+                    '$totalCalories cal • ${totalCarbs}g carbs',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            // Individual drinks
+            ...dayDrinks.entries.map((entry) {
+              final drinkId = entry.key;
+              final timestamps = entry.value;
+              final drink = _drinks[drinkId];
+
+              if (drink == null) return const SizedBox.shrink();
+
+              return ExpansionTile(
+                leading: const Icon(Icons.local_bar),
+                title: Text(drink.name),
+                subtitle: Text('${drink.total.cals} cal • ${drink.total.carbs}g carbs'),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline),
+                      onPressed: () => _removeDrink(dayIdx, drinkId),
+                      tooltip: 'Remove one',
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.secondaryContainer,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        'x${timestamps.length}',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSecondaryContainer,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline),
+                      onPressed: () => _addDrink(dayIdx, drinkId),
+                      tooltip: 'Add one',
+                    ),
+                  ],
+                ),
+                children: timestamps.asMap().entries.map((timestampEntry) {
+                  final index = timestampEntry.key;
+                  final timestamp = timestampEntry.value;
+                  return ListTile(
+                    leading: const Icon(Icons.access_time, size: 20),
+                    title: Text('Entry ${index + 1}'),
+                    subtitle: Text('Time: $timestamp'),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      onPressed: () => _removeDrink(dayIdx, drinkId, timestampIndex: index),
+                      tooltip: 'Delete this entry',
+                    ),
+                  );
+                }).toList(),
+              );
+            }),
+          ],
+        ],
+      ),
     );
   }
 
@@ -592,12 +770,85 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildDrinks() {
+    print('Building drinks view. Drinks count: ${_drinks.length}');
+    print('Drinks: ${_drinks.keys.toList()}');
+
+    // Calculate today's total drink calories
+    final todayIdx = DateTime.now().weekday - 1;
+    final todayDrinks = _dailyDrinks[todayIdx] ?? {};
+    int totalCalories = 0;
+    int totalCarbs = 0;
+
+    for (final entry in todayDrinks.entries) {
+      final drinkId = entry.key;
+      final timestamps = entry.value;
+      final drink = _drinks[drinkId];
+      if (drink != null) {
+        totalCalories += int.parse(drink.total.cals) * timestamps.length;
+        totalCarbs += (double.parse(drink.total.carbs) * timestamps.length).round();
+      }
+    }
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        // Today's drinks summary card
+        if (todayDrinks.isNotEmpty)
+          Card(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Today\'s Drinks',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                      Text(
+                        '${todayDrinks.values.fold(0, (sum, timestamps) => sum + timestamps.length)} drink${todayDrinks.values.fold(0, (sum, timestamps) => sum + timestamps.length) == 1 ? '' : 's'}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '$totalCalories cal',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                      Text(
+                        '$totalCarbs g carbs',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        if (todayDrinks.isNotEmpty) const SizedBox(height: 16),
         Text(
-          'Drinks',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+          'Available Drinks',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -647,6 +898,64 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _addDrink(int dayIdx, String drinkId) async {
+    final now = DateTime.now();
+    final timestamp = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+
+    setState(() {
+      _dailyDrinks[dayIdx] ??= {};
+      _dailyDrinks[dayIdx]![drinkId] ??= [];
+      _dailyDrinks[dayIdx]![drinkId]!.add(timestamp);
+    });
+    await _storage.saveDailyDrinks(_dailyDrinks);
+  }
+
+  Future<void> _removeDrink(int dayIdx, String drinkId, {int? timestampIndex}) async {
+    setState(() {
+      if (_dailyDrinks[dayIdx] != null && _dailyDrinks[dayIdx]![drinkId] != null) {
+        if (timestampIndex != null && timestampIndex < _dailyDrinks[dayIdx]![drinkId]!.length) {
+          // Remove specific timestamp
+          _dailyDrinks[dayIdx]![drinkId]!.removeAt(timestampIndex);
+        } else {
+          // Remove last entry if no specific index
+          _dailyDrinks[dayIdx]![drinkId]!.removeLast();
+        }
+
+        // Clean up empty entries
+        if (_dailyDrinks[dayIdx]![drinkId]!.isEmpty) {
+          _dailyDrinks[dayIdx]!.remove(drinkId);
+          if (_dailyDrinks[dayIdx]!.isEmpty) {
+            _dailyDrinks.remove(dayIdx);
+          }
+        }
+      }
+    });
+    await _storage.saveDailyDrinks(_dailyDrinks);
+  }
+
+  void _showDrinkPicker(BuildContext context, int dayIdx) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Drink'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: _drinks.entries.map((entry) {
+              return ListTile(
+                title: Text(entry.value.name),
+                onTap: () {
+                  _addDrink(dayIdx, entry.key);
+                  Navigator.pop(context);
+                },
+              );
+            }).toList(),
+          ),
+        ),
+      ),
+    );
   }
 }
 

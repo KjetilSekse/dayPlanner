@@ -1,0 +1,26 @@
+{
+  "name": "Bulmers Red Berry & Lime",
+  "ingredients": [
+    "1 bottle (333ml) Bulmers Red Berry & Lime cider",
+    "Ice cubes (optional)"
+  ],
+  "instructions": [
+    "Chill the bottle in the refrigerator.",
+    "Pour into a glass over ice if desired.",
+    "Enjoy cold."
+  ],
+  "macros": {
+    "per_100g": {
+      "cals": "50",
+      "carbs": "7",
+      "fat": "0",
+      "protein": "0"
+    },
+    "total": {
+      "cals": "167",
+      "carbs": "23",
+      "fat": "0",
+      "protein": "0"
+    }
+  }
+}

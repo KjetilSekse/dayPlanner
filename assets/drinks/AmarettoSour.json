@@ -17,17 +17,17 @@
     "Garnish with a maraschino cherry and lemon slice."
   ],
   "macros": {
-    "per_100ml": {
-      "cals": "175",
-      "carbs": "18",
-      "fat": "0",
-      "protein": "3"
-    },
-    "total": {
-      "cals": "165",
+    "per_100g": {
+      "cals": "152",
       "carbs": "17",
       "fat": "0",
-      "protein": "3"
+      "protein": "4"
+    },
+    "total": {
+      "cals": "145",
+      "carbs": "16",
+      "fat": "0",
+      "protein": "4"
     }
   }
 }

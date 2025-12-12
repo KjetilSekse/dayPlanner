@@ -18,17 +18,17 @@
     "Add 2-3 dashes of Angostura bitters on top of the foam if desired."
   ],
   "macros": {
-    "per_100ml": {
-      "cals": "125",
-      "carbs": "9",
-      "fat": "0",
-      "protein": "1.5"
-    },
-    "total": {
-      "cals": "175",
+    "per_100g": {
+      "cals": "155",
       "carbs": "13",
       "fat": "0",
-      "protein": "2"
+      "protein": "4"
+    },
+    "total": {
+      "cals": "157",
+      "carbs": "13",
+      "fat": "0",
+      "protein": "4"
     }
   }
 }

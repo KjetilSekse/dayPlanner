@@ -1,0 +1,39 @@
+{
+  "name": "Chili con Carne",
+  "ingredients": [
+    "400 g kjøttdeig eller karbonadedeig",
+    "2 ss margarin eller olje til steking",
+    "1 stk finhakket løk",
+    "2 båter finhakket hvitløk",
+    "1 stk finhakket rød chili",
+    "1 boks hermetiske tomater",
+    "1 boks chilibønner",
+    "1 stk rød paprika i biter",
+    "1 stk grønn paprika i biter",
+    "1,5 ts chilipulver",
+    "0,5 ts malt spisskummen",
+    "0,5 ts salt"
+  ],
+  "instructions": [
+    "Ha margarin eller olje i en varm gryte. Vent til margarinen slutter å bruse.",
+    "Brun kjøttdeig i to omganger sammen med løk, hvitløk og chili.",
+    "Hell over hermetisk tomat og la det surre i 3-4 minutter.",
+    "Bland inn chilibønner, paprika og krydder.",
+    "La det koke et par minutter og smak til med salt.",
+    "Server gjerne med salat og grove minibaguetter."
+  ],
+  "macros": {
+    "per_100g": {
+      "cals": "110",
+      "carbs": "8",
+      "fat": "5",
+      "protein": "7"
+    },
+    "total": {
+      "cals": "880",
+      "carbs": "64",
+      "fat": "40",
+      "protein": "56"
+    }
+  }
+}

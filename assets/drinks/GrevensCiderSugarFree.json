@@ -1,0 +1,26 @@
+{
+  "name": "Grevens Cider Sugar Free",
+  "ingredients": [
+    "1 can (500ml) Grevens sugar-free cider",
+    "Ice cubes (optional)"
+  ],
+  "instructions": [
+    "Chill the can in the refrigerator.",
+    "Pour into a glass over ice if desired.",
+    "Enjoy cold."
+  ],
+  "macros": {
+    "per_100g": {
+      "cals": "30",
+      "carbs": "1",
+      "fat": "0",
+      "protein": "0"
+    },
+    "total": {
+      "cals": "150",
+      "carbs": "5",
+      "fat": "0",
+      "protein": "0"
+    }
+  }
+}

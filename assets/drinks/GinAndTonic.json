@@ -17,14 +17,14 @@
     "Add optional cucumber or herbs if desired."
   ],
   "macros": {
-    "per_100ml": {
-      "cals": "54",
+    "per_100g": {
+      "cals": "56",
       "carbs": "0.5",
       "fat": "0",
       "protein": "0"
     },
     "total": {
-      "cals": "113",
+      "cals": "118",
       "carbs": "1",
       "fat": "0",
       "protein": "0"
