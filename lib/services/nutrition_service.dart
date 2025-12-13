@@ -89,13 +89,19 @@ class NutritionService {
     return mealPortions[dateKey] ?? 1.0;
   }
 
-  /// Parse macros from recipe (handles string values)
+  /// Parse a macro value string like "410 kcal" or "45 g" to a number
+  static int _parseValue(String value) {
+    final numStr = value.split(' ').first;
+    return double.tryParse(numStr)?.round() ?? 0;
+  }
+
+  /// Parse macros from recipe (handles string values with units)
   DailyMacros _parseMacros(Macros macros) {
     return DailyMacros(
-      calories: int.tryParse(macros.cals) ?? 0,
-      protein: int.tryParse(macros.protein) ?? 0,
-      carbs: double.tryParse(macros.carbs)?.round() ?? 0,
-      fat: double.tryParse(macros.fat)?.round() ?? 0,
+      calories: _parseValue(macros.cals),
+      protein: _parseValue(macros.protein),
+      carbs: _parseValue(macros.carbs),
+      fat: _parseValue(macros.fat),
     );
   }
 

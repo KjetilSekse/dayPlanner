@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/menu.dart';
 import '../models/recipe.dart';
 
@@ -59,14 +61,127 @@ class StorageService {
   };
 
   SharedPreferences? _prefs;
+  static const String _backupFileName = 'dayplanner_backup.json';
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
+    // Try to restore from backup if prefs appear empty (fresh install)
+    await _restoreFromBackupIfNeeded();
   }
 
   SharedPreferences get prefs {
     if (_prefs == null) throw StateError('StorageService not initialized');
     return _prefs!;
+  }
+
+  // Get the backup file path - uses external storage on Android (survives reinstall)
+  Future<File> _getBackupFile() async {
+    Directory? dir;
+    if (Platform.isAndroid) {
+      // External storage survives app reinstall
+      dir = await getExternalStorageDirectory();
+    }
+    // Fallback to documents directory
+    dir ??= await getApplicationDocumentsDirectory();
+    return File('${dir.path}/$_backupFileName');
+  }
+
+  // Check if this looks like a fresh install (no user data in prefs)
+  bool _isLikelyFreshInstall() {
+    // Check if key user data exists
+    final hasReplacements = prefs.getString('mealReplacements') != null;
+    final hasMenus = prefs.getString('selectedMenus') != null;
+    final hasCompleted = prefs.getStringList('done')?.isNotEmpty ?? false;
+    final hasDrinks = prefs.getString('dailyDrinksV2') != null;
+    return !hasReplacements && !hasMenus && !hasCompleted && !hasDrinks;
+  }
+
+  // Restore data from backup file if prefs are empty
+  Future<void> _restoreFromBackupIfNeeded() async {
+    if (!_isLikelyFreshInstall()) {
+      debugPrint('StorageService: Data exists in prefs, skipping restore');
+      return;
+    }
+
+    try {
+      final file = await _getBackupFile();
+      if (!await file.exists()) {
+        debugPrint('StorageService: No backup file found');
+        return;
+      }
+
+      final content = await file.readAsString();
+      final data = json.decode(content) as Map<String, dynamic>;
+
+      debugPrint('StorageService: Restoring from backup file...');
+
+      // Restore all data
+      if (data['mealReplacements'] != null) {
+        await prefs.setString('mealReplacements', json.encode(data['mealReplacements']));
+      }
+      if (data['selectedMenus'] != null) {
+        await prefs.setString('selectedMenus', json.encode(data['selectedMenus']));
+      }
+      if (data['customTimes'] != null) {
+        await prefs.setString('customTimes', json.encode(data['customTimes']));
+      }
+      if (data['mealPortions'] != null) {
+        await prefs.setString('mealPortions', json.encode(data['mealPortions']));
+      }
+      if (data['done'] != null) {
+        await prefs.setStringList('done', List<String>.from(data['done']));
+      }
+      if (data['checkedIngredients'] != null) {
+        await prefs.setStringList('checkedIngredients', List<String>.from(data['checkedIngredients']));
+      }
+      if (data['dailyDrinksV2'] != null) {
+        await prefs.setString('dailyDrinksV2', json.encode(data['dailyDrinksV2']));
+      }
+      if (data['notif'] != null) {
+        await prefs.setBool('notif', data['notif'] as bool);
+      }
+      if (data['vib'] != null) {
+        await prefs.setBool('vib', data['vib'] as bool);
+      }
+
+      debugPrint('StorageService: Backup restored successfully');
+    } catch (e) {
+      debugPrint('StorageService: Error restoring backup: $e');
+    }
+  }
+
+  // Save all user data to backup file
+  Future<void> backupToFile() async {
+    try {
+      final data = {
+        'mealReplacements': prefs.getString('mealReplacements') != null
+            ? json.decode(prefs.getString('mealReplacements')!)
+            : null,
+        'selectedMenus': prefs.getString('selectedMenus') != null
+            ? json.decode(prefs.getString('selectedMenus')!)
+            : null,
+        'customTimes': prefs.getString('customTimes') != null
+            ? json.decode(prefs.getString('customTimes')!)
+            : null,
+        'mealPortions': prefs.getString('mealPortions') != null
+            ? json.decode(prefs.getString('mealPortions')!)
+            : null,
+        'done': prefs.getStringList('done'),
+        'checkedIngredients': prefs.getStringList('checkedIngredients'),
+        'dailyDrinksV2': prefs.getString('dailyDrinksV2') != null
+            ? json.decode(prefs.getString('dailyDrinksV2')!)
+            : null,
+        'notif': prefs.getBool('notif'),
+        'vib': prefs.getBool('vib'),
+        'backupDate': DateTime.now().toIso8601String(),
+      };
+
+      final file = await _getBackupFile();
+      await file.writeAsString(json.encode(data));
+      debugPrint('StorageService: Backup saved to ${file.path}');
+    } catch (e) {
+      debugPrint('StorageService: Error saving backup: $e');
+    }
   }
 
   // Menu loading
@@ -214,6 +329,7 @@ class StorageService {
 
   Future<void> saveMealReplacements(Map<String, String> replacements) async {
     await prefs.setString('mealReplacements', json.encode(replacements));
+    await backupToFile();
   }
 
   // Save meal replacement for a specific date
@@ -247,6 +363,7 @@ class StorageService {
   Future<void> saveSelectedMenuForDate(DateTime date, String menuId, Map<String, String> selectedMenus) async {
     selectedMenus[dateToString(date)] = menuId;
     await prefs.setString('selectedMenus', json.encode(selectedMenus));
+    await backupToFile();
   }
 
   // Legacy support - load old format menus
@@ -283,6 +400,7 @@ class StorageService {
 
   Future<void> saveCustomTimes(Map<String, String> times) async {
     await prefs.setString('customTimes', json.encode(times));
+    await backupToFile();
   }
 
   Future<void> saveCustomTimeForDate(DateTime date, int mealIdx, String time, Map<String, String> customTimes) async {
@@ -305,6 +423,7 @@ class StorageService {
 
   Future<void> saveMealPortions(Map<String, double> portions) async {
     await prefs.setString('mealPortions', json.encode(portions));
+    await backupToFile();
   }
 
   Future<void> savePortionForDate(DateTime date, int mealIdx, double portion, Map<String, double> portions) async {
@@ -319,10 +438,16 @@ class StorageService {
 
   // Settings
   bool get notificationsEnabled => prefs.getBool('notif') ?? true;
-  Future<void> setNotificationsEnabled(bool value) => prefs.setBool('notif', value);
+  Future<void> setNotificationsEnabled(bool value) async {
+    await prefs.setBool('notif', value);
+    await backupToFile();
+  }
 
   bool get vibrationEnabled => prefs.getBool('vib') ?? true;
-  Future<void> setVibrationEnabled(bool value) => prefs.setBool('vib', value);
+  Future<void> setVibrationEnabled(bool value) async {
+    await prefs.setBool('vib', value);
+    await backupToFile();
+  }
 
   // Completed meals - now using date-based keys (YYYY-MM-DD-mealIdx)
   Set<String> loadCompleted() {
@@ -336,6 +461,7 @@ class StorageService {
 
   Future<void> saveCompleted(Set<String> completed) async {
     await prefs.setStringList('done', completed.toList());
+    await backupToFile();
   }
 
   // Checked ingredients
@@ -345,6 +471,7 @@ class StorageService {
 
   Future<void> saveCheckedIngredients(Set<String> checked) async {
     await prefs.setStringList('checkedIngredients', checked.toList());
+    await backupToFile();
   }
 
   // Daily drinks tracking - now using date strings (YYYY-MM-DD -> drinkId -> list of timestamps)
@@ -385,6 +512,7 @@ class StorageService {
 
   Future<void> saveDailyDrinksMap(Map<String, Map<String, List<String>>> dailyDrinks) async {
     await prefs.setString('dailyDrinksV2', json.encode(dailyDrinks));
+    await backupToFile();
   }
 
   // Legacy support for old dayIdx-based drinks

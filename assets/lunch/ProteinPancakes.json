@@ -1,32 +1,30 @@
 {
   "name": "Protein Pancakes",
   "ingredients": [
-    "1 scoop protein powder (30g)",
+    "80g of bodylab chocolate chip pancake mix",
+    "120g of kefir",
     "1 egg",
-    "50g oats",
-    "100ml milk",
-    "1 banana",
-    "Butter for frying"
+    "80g of royal ice cream",
+    "15g of monin purée of choice"
   ],
   "instructions": [
-    "Blend oats, protein powder, egg, milk, and banana until smooth.",
-    "Heat a non-stick pan with a little butter over medium heat.",
-    "Pour small amounts of batter to form pancakes.",
-    "Cook until bubbles form, then flip and cook the other side.",
-    "Serve with toppings of choice (berries, syrup, nut butter)."
+    "mix pancake mix, kefir and egg together",
+    "heat up pan with a bit of butter in",
+    "cook pancakes, then apply purée",
+    "serve with a side of ice cream"
   ],
   "macros": {
     "per_100g": {
-      "cals": "145",
-      "carbs": "15",
-      "fat": "4",
-      "protein": "12"
+      "cals": "130 kcal",
+      "carbs": "13 g",
+      "fat": "7 g",
+      "protein": "11 g"
     },
     "total": {
-      "cals": "450",
-      "carbs": "48",
-      "fat": "12",
-      "protein": "38"
+      "cals": "450 kcal",
+      "carbs": "46 g",
+      "fat": "24 g",
+      "protein": "38 g"
     }
   }
 }

@@ -8,10 +8,8 @@ import '../services/nutrition_service.dart';
 import '../services/storage_service.dart';
 import '../widgets/calendar_dialog.dart';
 import '../widgets/meal_card.dart';
-import '../widgets/menu_picker.dart';
 import '../widgets/recipe_card.dart';
 import '../widgets/recipe_picker.dart';
-import '../widgets/time_picker_sheet.dart';
 
 const List<String> dayNames = [
   'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
@@ -157,56 +155,6 @@ class _HomeScreenState extends State<HomeScreen> {
     await NotificationService.scheduleTodaysMeals(
       meals: todayMeals,
       vibrate: _vibrateOn,
-    );
-  }
-
-  void _showMenuPicker(BuildContext context, DateTime date) {
-    MenuPicker.show(
-      context: context,
-      dayName: _formatDateTitle(date),
-      menus: _menus,
-      currentMenuId: _storage.getMenuForDate(date, _selectedMenus),
-      onMenuSelected: (menuId) => _showTimePicker(context, date, menuId),
-    );
-  }
-
-  void _showTimePicker(BuildContext context, DateTime date, String menuId) {
-    final menu = _menus[menuId];
-    if (menu == null) return;
-
-    // Get meals with any existing custom times
-    final meals = menu.meals.asMap().entries.map((e) {
-      final customTime = _storage.getCustomTimeForDate(date, e.key, _customTimes);
-      return customTime != null ? e.value.copyWith(time: customTime) : e.value;
-    }).toList();
-
-    final dateStr = StorageService.dateToString(date);
-
-    TimePickerSheet.show(
-      context: context,
-      dayName: _formatDateTitle(date),
-      meals: meals,
-      onSave: (savedMeals, useDefaults) async {
-        setState(() {
-          _selectedMenus[dateStr] = menuId;
-
-          if (useDefaults) {
-            // Clear custom times for this date
-            for (int i = 0; i < savedMeals.length; i++) {
-              _customTimes.remove('$dateStr-$i');
-            }
-          } else {
-            // Save custom times
-            for (int i = 0; i < savedMeals.length; i++) {
-              _customTimes['$dateStr-$i'] = savedMeals[i].time;
-            }
-          }
-        });
-
-        await _storage.saveSelectedMenuForDate(date, menuId, _selectedMenus);
-        await _storage.saveCustomTimes(_customTimes);
-        if (_notifOn) _scheduleNotifications();
-      },
     );
   }
 
@@ -545,8 +493,6 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       itemBuilder: (context, pageIndex) {
         final date = _getDateForPage(pageIndex);
-        final currentMenuId = _storage.getMenuForDate(date, _selectedMenus);
-        final currentMenuName = _menus[currentMenuId]?.name ?? currentMenuId;
 
         return Scaffold(
           appBar: AppBar(
@@ -565,11 +511,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           body: _buildTodaysMeals(date),
           bottomNavigationBar: _buildBottomNav(),
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: () => _showMenuPicker(context, date),
-            icon: const Icon(Icons.restaurant_menu),
-            label: Text(currentMenuName),
-          ),
         );
       },
     );
