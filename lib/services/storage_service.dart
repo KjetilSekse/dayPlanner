@@ -8,6 +8,15 @@ import '../models/recipe.dart';
 enum MealCategory { breakfast, lunch, dinner }
 
 class StorageService {
+  // Date string format helper
+  static String dateToString(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  // Get weekday index (0=Monday, 6=Sunday) from DateTime
+  static int getWeekdayIdx(DateTime date) {
+    return date.weekday - 1;
+  }
   static const _menuFiles = ['healthy', 'quick', 'vegetarian'];
   static const _recipeFiles = [
     'ButterChicken',
@@ -45,6 +54,7 @@ class StorageService {
       'recipes/MeatballSoup',
       'recipes/PastaParmesan',
       'recipes/RedBeetSoup',
+      'recipes/ChiliConCarne',
     ],
   };
 
@@ -176,17 +186,70 @@ class StorageService {
     '6-2': 'PastaParmesan',                  // Sunday dinner
   };
 
-  // Meal replacements (dayIdx-mealIdx -> recipeId)
+  // Meal replacements - now supports both date-based (YYYY-MM-DD-mealIdx) and weekday-based (dayIdx-mealIdx)
   Map<String, String> loadMealReplacements() {
-    // Always use defaults for now (remove this line later to persist user changes)
-    return Map.from(_defaultMealReplacements);
+    final replacementsJson = prefs.getString('mealReplacements');
+    if (replacementsJson == null) {
+      return Map.from(_defaultMealReplacements);
+    }
+    final decoded = json.decode(replacementsJson) as Map<String, dynamic>;
+    // Merge with defaults so any new meals have default values
+    final result = Map<String, String>.from(_defaultMealReplacements);
+    for (final entry in decoded.entries) {
+      result[entry.key] = entry.value as String;
+    }
+    return result;
+  }
+
+  // Get meal replacement for a specific date (checks date-specific first, then weekday default)
+  String? getMealReplacementForDate(DateTime date, int mealIdx, Map<String, String> replacements) {
+    final dateKey = '${dateToString(date)}-$mealIdx';
+    if (replacements.containsKey(dateKey)) {
+      return replacements[dateKey];
+    }
+    // Fall back to weekday default
+    final weekdayKey = '${getWeekdayIdx(date)}-$mealIdx';
+    return replacements[weekdayKey];
   }
 
   Future<void> saveMealReplacements(Map<String, String> replacements) async {
     await prefs.setString('mealReplacements', json.encode(replacements));
   }
 
-  // Selected menus per day
+  // Save meal replacement for a specific date
+  Future<void> saveMealReplacementForDate(DateTime date, int mealIdx, String? recipeId, Map<String, String> replacements) async {
+    final dateKey = '${dateToString(date)}-$mealIdx';
+    if (recipeId == null) {
+      replacements.remove(dateKey);
+    } else {
+      replacements[dateKey] = recipeId;
+    }
+    await saveMealReplacements(replacements);
+  }
+
+  // Selected menus - now stored by date string
+  Map<String, String> loadSelectedMenusMap() {
+    final menusJson = prefs.getString('selectedMenus');
+    if (menusJson == null) return {};
+    final decoded = json.decode(menusJson) as Map<String, dynamic>;
+    return decoded.map((k, v) => MapEntry(k, v as String));
+  }
+
+  // Get menu for a specific date (checks date-specific first, then returns default)
+  String getMenuForDate(DateTime date, Map<String, String> selectedMenus) {
+    final dateKey = dateToString(date);
+    if (selectedMenus.containsKey(dateKey)) {
+      return selectedMenus[dateKey]!;
+    }
+    return _menuFiles.first;
+  }
+
+  Future<void> saveSelectedMenuForDate(DateTime date, String menuId, Map<String, String> selectedMenus) async {
+    selectedMenus[dateToString(date)] = menuId;
+    await prefs.setString('selectedMenus', json.encode(selectedMenus));
+  }
+
+  // Legacy support - load old format menus
   Map<int, String> loadSelectedMenus() {
     final selections = <int, String>{};
     for (int i = 0; i < 7; i++) {
@@ -199,7 +262,7 @@ class StorageService {
     await prefs.setString('menu_$dayIdx', menuId);
   }
 
-  // Custom times
+  // Custom times - supports date-based keys (YYYY-MM-DD-mealIdx)
   Map<String, String> loadCustomTimes() {
     final timesJson = prefs.getString('customTimes');
     if (timesJson == null) return {};
@@ -207,8 +270,51 @@ class StorageService {
     return decoded.map((k, v) => MapEntry(k, v as String));
   }
 
+  // Get custom time for a specific date and meal
+  String? getCustomTimeForDate(DateTime date, int mealIdx, Map<String, String> customTimes) {
+    final dateKey = '${dateToString(date)}-$mealIdx';
+    if (customTimes.containsKey(dateKey)) {
+      return customTimes[dateKey];
+    }
+    // Fall back to weekday-based key for legacy data
+    final weekdayKey = '${getWeekdayIdx(date)}-$mealIdx';
+    return customTimes[weekdayKey];
+  }
+
   Future<void> saveCustomTimes(Map<String, String> times) async {
     await prefs.setString('customTimes', json.encode(times));
+  }
+
+  Future<void> saveCustomTimeForDate(DateTime date, int mealIdx, String time, Map<String, String> customTimes) async {
+    customTimes['${dateToString(date)}-$mealIdx'] = time;
+    await saveCustomTimes(customTimes);
+  }
+
+  // Meal portions (YYYY-MM-DD-mealIdx -> multiplier, default 1.0)
+  Map<String, double> loadMealPortions() {
+    final portionsJson = prefs.getString('mealPortions');
+    if (portionsJson == null) return {};
+    final decoded = json.decode(portionsJson) as Map<String, dynamic>;
+    return decoded.map((k, v) => MapEntry(k, (v as num).toDouble()));
+  }
+
+  double getPortionForDate(DateTime date, int mealIdx, Map<String, double> portions) {
+    final dateKey = '${dateToString(date)}-$mealIdx';
+    return portions[dateKey] ?? 1.0;
+  }
+
+  Future<void> saveMealPortions(Map<String, double> portions) async {
+    await prefs.setString('mealPortions', json.encode(portions));
+  }
+
+  Future<void> savePortionForDate(DateTime date, int mealIdx, double portion, Map<String, double> portions) async {
+    final dateKey = '${dateToString(date)}-$mealIdx';
+    if (portion == 1.0) {
+      portions.remove(dateKey); // Don't store default value
+    } else {
+      portions[dateKey] = portion;
+    }
+    await saveMealPortions(portions);
   }
 
   // Settings
@@ -218,9 +324,14 @@ class StorageService {
   bool get vibrationEnabled => prefs.getBool('vib') ?? true;
   Future<void> setVibrationEnabled(bool value) => prefs.setBool('vib', value);
 
-  // Completed meals
+  // Completed meals - now using date-based keys (YYYY-MM-DD-mealIdx)
   Set<String> loadCompleted() {
     return prefs.getStringList('done')?.toSet() ?? {};
+  }
+
+  // Get completion key for a specific date
+  static String getCompletedKey(DateTime date, int mealIdx) {
+    return '${dateToString(date)}-$mealIdx';
   }
 
   Future<void> saveCompleted(Set<String> completed) async {
@@ -236,7 +347,47 @@ class StorageService {
     await prefs.setStringList('checkedIngredients', checked.toList());
   }
 
-  // Daily drinks tracking (dayIdx -> drinkId -> list of timestamps)
+  // Daily drinks tracking - now using date strings (YYYY-MM-DD -> drinkId -> list of timestamps)
+  Map<String, Map<String, List<String>>> loadDailyDrinksMap() {
+    final drinksJson = prefs.getString('dailyDrinksV2');
+    if (drinksJson == null) return {};
+
+    try {
+      final decoded = json.decode(drinksJson) as Map<String, dynamic>;
+      final result = <String, Map<String, List<String>>>{};
+
+      for (final entry in decoded.entries) {
+        final dateStr = entry.key;
+        final drinksMap = <String, List<String>>{};
+
+        for (final drinkEntry in (entry.value as Map<String, dynamic>).entries) {
+          final drinkId = drinkEntry.key;
+          final value = drinkEntry.value;
+
+          if (value is List) {
+            drinksMap[drinkId] = value.map((t) => t as String).toList();
+          }
+        }
+
+        result[dateStr] = drinksMap;
+      }
+      return result;
+    } catch (e) {
+      debugPrint('Error loading daily drinks v2, resetting: $e');
+      prefs.remove('dailyDrinksV2');
+      return {};
+    }
+  }
+
+  Map<String, List<String>> getDrinksForDate(DateTime date, Map<String, Map<String, List<String>>> dailyDrinks) {
+    return dailyDrinks[dateToString(date)] ?? {};
+  }
+
+  Future<void> saveDailyDrinksMap(Map<String, Map<String, List<String>>> dailyDrinks) async {
+    await prefs.setString('dailyDrinksV2', json.encode(dailyDrinks));
+  }
+
+  // Legacy support for old dayIdx-based drinks
   Map<int, Map<String, List<String>>> loadDailyDrinks() {
     final drinksJson = prefs.getString('dailyDrinks');
     if (drinksJson == null) return {};

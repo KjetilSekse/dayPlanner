@@ -17,16 +17,16 @@
   ],
   "macros": {
     "per_100g": {
-      "cals": "145 kcal",
-      "carbs": "15 g",
-      "fat": "4 g",
-      "protein": "12 g"
+      "cals": "145",
+      "carbs": "15",
+      "fat": "4",
+      "protein": "12"
     },
     "total": {
-      "cals": "450 kcal",
-      "carbs": "48 g",
-      "fat": "12 g",
-      "protein": "38 g"
+      "cals": "450",
+      "carbs": "48",
+      "fat": "12",
+      "protein": "38"
     }
   }
 }

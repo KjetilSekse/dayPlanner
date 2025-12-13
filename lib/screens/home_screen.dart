@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/meal.dart';
 import '../models/menu.dart';
 import '../models/recipe.dart';
 import '../services/notification_service.dart';
+import '../services/nutrition_service.dart';
 import '../services/storage_service.dart';
+import '../widgets/calendar_dialog.dart';
 import '../widgets/meal_card.dart';
 import '../widgets/menu_picker.dart';
 import '../widgets/recipe_card.dart';
@@ -30,24 +33,46 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, Recipe> _recipes = {};
   Map<MealCategory, Map<String, Recipe>> _categoryRecipes = {};
   Map<String, Recipe> _drinks = {};
-  Map<int, String> _selectedMenus = {};
-  Map<String, String> _customTimes = {};
-  Map<String, String> _mealReplacements = {}; // dayIdx-mealIdx -> recipeId
+  Map<String, String> _selectedMenus = {}; // dateStr -> menuId
+  Map<String, String> _customTimes = {}; // dateStr-mealIdx -> time
+  Map<String, String> _mealReplacements = {}; // dateStr-mealIdx or dayIdx-mealIdx -> recipeId
+  Map<String, double> _mealPortions = {}; // dateStr-mealIdx -> portion multiplier
   Set<String> _completed = {};
   Set<String> _checkedIngredients = {};
-  Map<int, Map<String, List<String>>> _dailyDrinks = {}; // dayIdx -> drinkId -> list of timestamps
+  Map<String, Map<String, List<String>>> _dailyDrinks = {}; // dateStr -> drinkId -> list of timestamps
   bool _loaded = false;
   int _selectedMealCategory = 4; // 0=Breakfast, 1=Lunch, 2=Dinner, 3=Drinks, 4=Today
   late PageController _pageController;
-  int _currentDayIdx = DateTime.now().weekday - 1;
+
+  // Date-based navigation
+  DateTime _currentDate = DateTime.now();
+  late DateTime _displayedMonth; // First day of displayed month
+  late int _daysInMonth;
 
   StorageService get _storage => widget.storage;
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: _currentDayIdx);
+    _initializeMonth(_currentDate);
     _load();
+  }
+
+  void _initializeMonth(DateTime date) {
+    _displayedMonth = DateTime(date.year, date.month, 1);
+    _daysInMonth = DateTime(date.year, date.month + 1, 0).day;
+    final initialPage = date.day - 1; // 0-indexed
+    _pageController = PageController(initialPage: initialPage);
+  }
+
+  DateTime _getDateForPage(int pageIndex) {
+    return DateTime(_displayedMonth.year, _displayedMonth.month, pageIndex + 1);
+  }
+
+  String _formatDateTitle(DateTime date) {
+    final dayName = dayNames[date.weekday - 1];
+    final monthDay = DateFormat('MMM d').format(date);
+    return '$dayName, $monthDay';
   }
 
   @override
@@ -71,14 +96,15 @@ class _HomeScreenState extends State<HomeScreen> {
         _recipes = recipes;
         _categoryRecipes = categoryRecipes;
         _drinks = drinks;
-        _selectedMenus = _storage.loadSelectedMenus();
+        _selectedMenus = _storage.loadSelectedMenusMap();
         _customTimes = _storage.loadCustomTimes();
         _mealReplacements = _storage.loadMealReplacements();
+        _mealPortions = _storage.loadMealPortions();
         _notifOn = _storage.notificationsEnabled;
         _vibrateOn = _storage.vibrationEnabled;
         _completed = _storage.loadCompleted();
         _checkedIngredients = _storage.loadCheckedIngredients();
-        _dailyDrinks = _storage.loadDailyDrinks();
+        _dailyDrinks = _storage.loadDailyDrinksMap();
         _loaded = true;
       });
 
@@ -93,15 +119,30 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  List<Meal> _getMealsForDay(int dayIdx) {
-    final menuId = _selectedMenus[dayIdx] ?? StorageService.menuIds.first;
+  List<Meal> _getMealsForDate(DateTime date) {
+    final menuId = _storage.getMenuForDate(date, _selectedMenus);
     final menu = _menus[menuId];
     if (menu == null) return [];
 
     return menu.meals.asMap().entries.map((e) {
-      final customTime = _customTimes['$dayIdx-${e.key}'];
+      final customTime = _storage.getCustomTimeForDate(date, e.key, _customTimes);
       return customTime != null ? e.value.copyWith(time: customTime) : e.value;
     }).toList();
+  }
+
+  // Get NutritionService instance for current state
+  NutritionService get _nutritionService => NutritionService(
+    recipes: _recipes,
+    categoryRecipes: _categoryRecipes,
+    drinks: _drinks,
+    mealReplacements: _mealReplacements,
+    mealPortions: _mealPortions,
+    dailyDrinks: _dailyDrinks,
+  );
+
+  // Calculate calories for a specific date
+  int _calculateDayCalories(DateTime date) {
+    return _nutritionService.getCaloriesForDate(date);
   }
 
   Future<void> _scheduleNotifications() async {
@@ -111,56 +152,58 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     // Only schedule today's meals
-    final todayIdx = DateTime.now().weekday - 1; // 0 = Monday
-    final todayMeals = _getMealsForDay(todayIdx);
+    final today = DateTime.now();
+    final todayMeals = _getMealsForDate(today);
     await NotificationService.scheduleTodaysMeals(
       meals: todayMeals,
       vibrate: _vibrateOn,
     );
   }
 
-  void _showMenuPicker(BuildContext context, int dayIdx) {
+  void _showMenuPicker(BuildContext context, DateTime date) {
     MenuPicker.show(
       context: context,
-      dayName: dayNames[dayIdx],
+      dayName: _formatDateTitle(date),
       menus: _menus,
-      currentMenuId: _selectedMenus[dayIdx] ?? StorageService.menuIds.first,
-      onMenuSelected: (menuId) => _showTimePicker(context, dayIdx, menuId),
+      currentMenuId: _storage.getMenuForDate(date, _selectedMenus),
+      onMenuSelected: (menuId) => _showTimePicker(context, date, menuId),
     );
   }
 
-  void _showTimePicker(BuildContext context, int dayIdx, String menuId) {
+  void _showTimePicker(BuildContext context, DateTime date, String menuId) {
     final menu = _menus[menuId];
     if (menu == null) return;
 
     // Get meals with any existing custom times
     final meals = menu.meals.asMap().entries.map((e) {
-      final customTime = _customTimes['$dayIdx-${e.key}'];
+      final customTime = _storage.getCustomTimeForDate(date, e.key, _customTimes);
       return customTime != null ? e.value.copyWith(time: customTime) : e.value;
     }).toList();
 
+    final dateStr = StorageService.dateToString(date);
+
     TimePickerSheet.show(
       context: context,
-      dayName: dayNames[dayIdx],
+      dayName: _formatDateTitle(date),
       meals: meals,
       onSave: (savedMeals, useDefaults) async {
         setState(() {
-          _selectedMenus[dayIdx] = menuId;
+          _selectedMenus[dateStr] = menuId;
 
           if (useDefaults) {
-            // Clear custom times for this day
+            // Clear custom times for this date
             for (int i = 0; i < savedMeals.length; i++) {
-              _customTimes.remove('$dayIdx-$i');
+              _customTimes.remove('$dateStr-$i');
             }
           } else {
             // Save custom times
             for (int i = 0; i < savedMeals.length; i++) {
-              _customTimes['$dayIdx-$i'] = savedMeals[i].time;
+              _customTimes['$dateStr-$i'] = savedMeals[i].time;
             }
           }
         });
 
-        await _storage.saveSelectedMenu(dayIdx, menuId);
+        await _storage.saveSelectedMenuForDate(date, menuId, _selectedMenus);
         await _storage.saveCustomTimes(_customTimes);
         if (_notifOn) _scheduleNotifications();
       },
@@ -282,7 +325,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await _storage.saveCheckedIngredients(_checkedIngredients);
   }
 
-  Future<void> _editMealTime(BuildContext context, int dayIdx, int mealIdx, String currentTime) async {
+  Future<void> _editMealTime(BuildContext context, DateTime date, int mealIdx, String currentTime) async {
     final parts = currentTime.split(':');
     final initial = TimeOfDay(
       hour: int.parse(parts[0]),
@@ -296,29 +339,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (picked != null) {
       final newTime = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+      final dateStr = StorageService.dateToString(date);
       setState(() {
-        _customTimes['$dayIdx-$mealIdx'] = newTime;
+        _customTimes['$dateStr-$mealIdx'] = newTime;
       });
       await _storage.saveCustomTimes(_customTimes);
       if (_notifOn) _scheduleNotifications();
     }
   }
 
-  Recipe? _getReplacementRecipe(int dayIdx, int mealIdx) {
-    final key = '$dayIdx-$mealIdx';
-    final recipeId = _mealReplacements[key];
+  Recipe? _getReplacementRecipe(DateTime date, int mealIdx) {
+    final recipeId = _storage.getMealReplacementForDate(date, mealIdx, _mealReplacements);
     if (recipeId == null) return null;
-    // Check in general recipes first, then in category recipes
-    if (_recipes.containsKey(recipeId)) {
-      return _recipes[recipeId];
-    }
-    // Search through category recipes
-    for (final categoryMap in _categoryRecipes.values) {
-      if (categoryMap.containsKey(recipeId)) {
-        return categoryMap[recipeId];
-      }
-    }
-    return null;
+    return _nutritionService.findRecipe(recipeId);
+  }
+
+  double _getPortionForMeal(DateTime date, int mealIdx) {
+    return _storage.getPortionForDate(date, mealIdx, _mealPortions);
   }
 
   Map<String, Recipe> _getAllRecipesForCategory(MealCategory category) {
@@ -335,17 +372,21 @@ class _HomeScreenState extends State<HomeScreen> {
     return allRecipes;
   }
 
-  void _showRecipePicker(BuildContext context, int dayIdx, int mealIdx, String mealName) {
-    final key = '$dayIdx-$mealIdx';
+  void _showRecipePicker(BuildContext context, DateTime date, int mealIdx, String mealName) {
+    final dateStr = StorageService.dateToString(date);
+    final key = '$dateStr-$mealIdx';
     // Determine which category this meal belongs to (0=breakfast, 1=lunch, 2=dinner)
     final category = MealCategory.values[mealIdx.clamp(0, 2)];
     final availableRecipes = _getAllRecipesForCategory(category);
+
+    // Get current recipe ID (check date-specific first, then weekday default)
+    final currentRecipeId = _storage.getMealReplacementForDate(date, mealIdx, _mealReplacements);
 
     RecipePicker.show(
       context: context,
       mealName: mealName,
       recipes: availableRecipes,
-      currentRecipeId: _mealReplacements[key],
+      currentRecipeId: currentRecipeId,
       onRecipeSelected: (recipeId) async {
         setState(() {
           if (recipeId == null) {
@@ -356,6 +397,51 @@ class _HomeScreenState extends State<HomeScreen> {
         });
         await _storage.saveMealReplacements(_mealReplacements);
       },
+    );
+  }
+
+  void _showPortionPicker(BuildContext context, DateTime date, int mealIdx) {
+    final currentPortion = _getPortionForMeal(date, mealIdx);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Set Portion'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Current: ${currentPortion}x'),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              children: [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0].map((portion) {
+                return ChoiceChip(
+                  label: Text('${portion}x'),
+                  selected: currentPortion == portion,
+                  onSelected: (_) async {
+                    setState(() {
+                      final dateStr = StorageService.dateToString(date);
+                      if (portion == 1.0) {
+                        _mealPortions.remove('$dateStr-$mealIdx');
+                      } else {
+                        _mealPortions['$dateStr-$mealIdx'] = portion;
+                      }
+                    });
+                    await _storage.saveMealPortions(_mealPortions);
+                    if (context.mounted) Navigator.pop(context);
+                  },
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -407,33 +493,80 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _showCalendarPicker() {
+    showDialog(
+      context: context,
+      builder: (context) => CalendarDialog(
+        initialDate: _currentDate,
+        displayedMonth: _displayedMonth,
+        calorieCalculator: _calculateDayCalories,
+        onDateSelected: (date) {
+          Navigator.pop(context);
+          _jumpToDate(date);
+        },
+        onMonthChanged: (month) {
+          // This will be handled inside the dialog
+        },
+      ),
+    );
+  }
+
+  void _jumpToDate(DateTime date) {
+    if (date.year == _displayedMonth.year && date.month == _displayedMonth.month) {
+      // Same month, just jump to page
+      _pageController.animateToPage(
+        date.day - 1,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+      setState(() {
+        _currentDate = date;
+      });
+    } else {
+      // Different month, reinitialize
+      _pageController.dispose();
+      setState(() {
+        _displayedMonth = DateTime(date.year, date.month, 1);
+        _daysInMonth = DateTime(date.year, date.month + 1, 0).day;
+        _currentDate = date;
+        _pageController = PageController(initialPage: date.day - 1);
+      });
+    }
+  }
+
   Widget _buildDayPageView() {
     return PageView.builder(
       controller: _pageController,
-      itemCount: 7,
+      itemCount: _daysInMonth,
       onPageChanged: (index) {
         setState(() {
-          _currentDayIdx = index;
+          _currentDate = _getDateForPage(index);
         });
       },
-      itemBuilder: (context, dayIdx) {
-        final currentMenuId = _selectedMenus[dayIdx] ?? StorageService.menuIds.first;
+      itemBuilder: (context, pageIndex) {
+        final date = _getDateForPage(pageIndex);
+        final currentMenuId = _storage.getMenuForDate(date, _selectedMenus);
         final currentMenuName = _menus[currentMenuId]?.name ?? currentMenuId;
 
         return Scaffold(
           appBar: AppBar(
-            title: Text(dayNames[dayIdx]),
+            title: Text(_formatDateTitle(date)),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.calendar_month),
+                onPressed: _showCalendarPicker,
+                tooltip: 'Calendar',
+              ),
               IconButton(
                 icon: const Icon(Icons.settings),
                 onPressed: () => _showSettings(context),
               ),
             ],
           ),
-          body: _buildTodaysMeals(dayIdx),
+          body: _buildTodaysMeals(date),
           bottomNavigationBar: _buildBottomNav(),
           floatingActionButton: FloatingActionButton.extended(
-            onPressed: () => _showMenuPicker(context, dayIdx),
+            onPressed: () => _showMenuPicker(context, date),
             icon: const Icon(Icons.restaurant_menu),
             label: Text(currentMenuName),
           ),
@@ -493,19 +626,24 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Widget _buildTodaysMeals(int dayIdx) {
-    final meals = _getMealsForDay(dayIdx);
-    final dayDrinks = _dailyDrinks[dayIdx] ?? {};
+  Widget _buildTodaysMeals(DateTime date) {
+    final meals = _getMealsForDate(date);
+    final dateStr = StorageService.dateToString(date);
+    final dayDrinks = _dailyDrinks[dateStr] ?? {};
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        // Daily calories summary
+        _buildDailySummary(date),
+        const SizedBox(height: 8),
         // Regular meals
         ...meals.asMap().entries.map((entry) {
           final mealIdx = entry.key;
           final meal = entry.value;
-          final mealId = '$dayIdx-$mealIdx';
-          final replacementRecipe = _getReplacementRecipe(dayIdx, mealIdx);
+          final mealId = '$dateStr-$mealIdx';
+          final replacementRecipe = _getReplacementRecipe(date, mealIdx);
+          final portion = _getPortionForMeal(date, mealIdx);
 
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
@@ -520,8 +658,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     checkedIngredients: _checkedIngredients,
                     onCompletedChanged: (v) => _toggleCompleted(mealId, v),
                     onIngredientChanged: _toggleIngredient,
-                    onTimeEdit: () => _editMealTime(context, dayIdx, mealIdx, meal.time),
-                    onReplace: () => _showRecipePicker(context, dayIdx, mealIdx, meal.name),
+                    onTimeEdit: () => _editMealTime(context, date, mealIdx, meal.time),
+                    onReplace: () => _showRecipePicker(context, date, mealIdx, meal.name),
+                    portion: portion,
+                    onPortionTap: () => _showPortionPicker(context, date, mealIdx),
                   )
                 else
                   MealCard(
@@ -531,8 +671,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     checkedIngredients: _checkedIngredients,
                     onCompletedChanged: (v) => _toggleCompleted(mealId, v),
                     onIngredientChanged: _toggleIngredient,
-                    onTimeEdit: () => _editMealTime(context, dayIdx, mealIdx, meal.time),
-                    onReplace: () => _showRecipePicker(context, dayIdx, mealIdx, meal.name),
+                    onTimeEdit: () => _editMealTime(context, date, mealIdx, meal.time),
+                    onReplace: () => _showRecipePicker(context, date, mealIdx, meal.name),
                   ),
                 Positioned(
                   top: 8,
@@ -551,12 +691,53 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }),
         // Drinks section
-        _buildDrinksSection(dayIdx, dayDrinks),
+        _buildDrinksSection(date, dayDrinks),
       ],
     );
   }
 
-  Widget _buildDrinksSection(int dayIdx, Map<String, List<String>> dayDrinks) {
+  Widget _buildDailySummary(DateTime date) {
+    final macros = _nutritionService.getMacrosForDate(date);
+    return Card(
+      color: Theme.of(context).colorScheme.primaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildMacroItem('Calories', '${macros.calories}', 'kcal'),
+            _buildMacroItem('Protein', '${macros.protein}', 'g'),
+            _buildMacroItem('Carbs', '${macros.carbs}', 'g'),
+            _buildMacroItem('Fat', '${macros.fat}', 'g'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMacroItem(String label, String value, String unit) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).colorScheme.onPrimaryContainer,
+          ),
+        ),
+        Text(
+          '$label ($unit)',
+          style: TextStyle(
+            fontSize: 11,
+            color: Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDrinksSection(DateTime date, Map<String, List<String>> dayDrinks) {
     // Calculate total calories and carbs for this day
     int totalCalories = 0;
     int totalCarbs = 0;
@@ -611,7 +792,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(width: 8),
             IconButton(
               icon: const Icon(Icons.add_circle_outline),
-              onPressed: () => _showDrinkPicker(context, dayIdx),
+              onPressed: () => _showDrinkPicker(context, date),
               tooltip: 'Add drink',
             ),
           ],
@@ -666,7 +847,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.remove_circle_outline),
-                      onPressed: () => _removeDrink(dayIdx, drinkId),
+                      onPressed: () => _removeDrink(date, drinkId),
                       tooltip: 'Remove one',
                     ),
                     Container(
@@ -685,7 +866,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.add_circle_outline),
-                      onPressed: () => _addDrink(dayIdx, drinkId),
+                      onPressed: () => _addDrink(date, drinkId),
                       tooltip: 'Add one',
                     ),
                   ],
@@ -699,7 +880,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     subtitle: Text('Time: $timestamp'),
                     trailing: IconButton(
                       icon: const Icon(Icons.close, size: 20),
-                      onPressed: () => _removeDrink(dayIdx, drinkId, timestampIndex: index),
+                      onPressed: () => _removeDrink(date, drinkId, timestampIndex: index),
                       tooltip: 'Delete this entry',
                     ),
                   );
@@ -714,7 +895,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildCookbook() {
     final categoryRecipes = _categoryRecipes[_currentCategory] ?? {};
-    final todayIdx = DateTime.now().weekday - 1;
+    final today = DateTime.now();
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -748,7 +929,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 onCompletedChanged: (v) => _toggleCompleted(recipeId, v),
                 onIngredientChanged: _toggleIngredient,
                 onTimeEdit: () {},
-                onReplace: () => _selectRecipeForMeal(todayIdx, _selectedMealCategory, entry.key),
+                onReplace: () => _selectRecipeForMeal(today, _selectedMealCategory, entry.key),
                 replaceButtonText: 'Set for today',
                 showReplaceButtonOutside: true,
               ),
@@ -774,8 +955,9 @@ class _HomeScreenState extends State<HomeScreen> {
     print('Drinks: ${_drinks.keys.toList()}');
 
     // Calculate today's total drink calories
-    final todayIdx = DateTime.now().weekday - 1;
-    final todayDrinks = _dailyDrinks[todayIdx] ?? {};
+    final today = DateTime.now();
+    final todayStr = StorageService.dateToString(today);
+    final todayDrinks = _dailyDrinks[todayStr] ?? {};
     int totalCalories = 0;
     int totalCarbs = 0;
 
@@ -884,8 +1066,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _selectRecipeForMeal(int dayIdx, int mealIdx, String recipeId) async {
-    final key = '$dayIdx-$mealIdx';
+  void _selectRecipeForMeal(DateTime date, int mealIdx, String recipeId) async {
+    final dateStr = StorageService.dateToString(date);
+    final key = '$dateStr-$mealIdx';
     setState(() {
       _mealReplacements[key] = recipeId;
     });
@@ -900,42 +1083,44 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _addDrink(int dayIdx, String drinkId) async {
+  Future<void> _addDrink(DateTime date, String drinkId) async {
     final now = DateTime.now();
     final timestamp = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    final dateStr = StorageService.dateToString(date);
 
     setState(() {
-      _dailyDrinks[dayIdx] ??= {};
-      _dailyDrinks[dayIdx]![drinkId] ??= [];
-      _dailyDrinks[dayIdx]![drinkId]!.add(timestamp);
+      _dailyDrinks[dateStr] ??= {};
+      _dailyDrinks[dateStr]![drinkId] ??= [];
+      _dailyDrinks[dateStr]![drinkId]!.add(timestamp);
     });
-    await _storage.saveDailyDrinks(_dailyDrinks);
+    await _storage.saveDailyDrinksMap(_dailyDrinks);
   }
 
-  Future<void> _removeDrink(int dayIdx, String drinkId, {int? timestampIndex}) async {
+  Future<void> _removeDrink(DateTime date, String drinkId, {int? timestampIndex}) async {
+    final dateStr = StorageService.dateToString(date);
     setState(() {
-      if (_dailyDrinks[dayIdx] != null && _dailyDrinks[dayIdx]![drinkId] != null) {
-        if (timestampIndex != null && timestampIndex < _dailyDrinks[dayIdx]![drinkId]!.length) {
+      if (_dailyDrinks[dateStr] != null && _dailyDrinks[dateStr]![drinkId] != null) {
+        if (timestampIndex != null && timestampIndex < _dailyDrinks[dateStr]![drinkId]!.length) {
           // Remove specific timestamp
-          _dailyDrinks[dayIdx]![drinkId]!.removeAt(timestampIndex);
+          _dailyDrinks[dateStr]![drinkId]!.removeAt(timestampIndex);
         } else {
           // Remove last entry if no specific index
-          _dailyDrinks[dayIdx]![drinkId]!.removeLast();
+          _dailyDrinks[dateStr]![drinkId]!.removeLast();
         }
 
         // Clean up empty entries
-        if (_dailyDrinks[dayIdx]![drinkId]!.isEmpty) {
-          _dailyDrinks[dayIdx]!.remove(drinkId);
-          if (_dailyDrinks[dayIdx]!.isEmpty) {
-            _dailyDrinks.remove(dayIdx);
+        if (_dailyDrinks[dateStr]![drinkId]!.isEmpty) {
+          _dailyDrinks[dateStr]!.remove(drinkId);
+          if (_dailyDrinks[dateStr]!.isEmpty) {
+            _dailyDrinks.remove(dateStr);
           }
         }
       }
     });
-    await _storage.saveDailyDrinks(_dailyDrinks);
+    await _storage.saveDailyDrinksMap(_dailyDrinks);
   }
 
-  void _showDrinkPicker(BuildContext context, int dayIdx) {
+  void _showDrinkPicker(BuildContext context, DateTime date) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -947,7 +1132,7 @@ class _HomeScreenState extends State<HomeScreen> {
               return ListTile(
                 title: Text(entry.value.name),
                 onTap: () {
-                  _addDrink(dayIdx, entry.key);
+                  _addDrink(date, entry.key);
                   Navigator.pop(context);
                 },
               );

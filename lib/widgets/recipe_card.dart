@@ -13,6 +13,8 @@ class RecipeCard extends StatelessWidget {
   final VoidCallback onReplace;
   final String replaceButtonText;
   final bool showReplaceButtonOutside;
+  final double portion;
+  final VoidCallback? onPortionTap;
 
   const RecipeCard({
     super.key,
@@ -27,6 +29,8 @@ class RecipeCard extends StatelessWidget {
     required this.onReplace,
     this.replaceButtonText = 'Replace',
     this.showReplaceButtonOutside = false,
+    this.portion = 1.0,
+    this.onPortionTap,
   });
 
   @override
@@ -50,18 +54,60 @@ class RecipeCard extends StatelessWidget {
         subtitle: Row(
           children: [
             Expanded(
-              child: GestureDetector(
-                onTap: onTimeEdit,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(time, style: const TextStyle(fontSize: 16)),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.edit, size: 18),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: onTimeEdit,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(time, style: const TextStyle(fontSize: 16)),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.edit, size: 16),
+                        ],
+                      ),
+                    ),
+                    if (onPortionTap != null) ...[
+                      const SizedBox(width: 12),
+                      GestureDetector(
+                        onTap: onPortionTap,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: portion != 1.0
+                                ? Theme.of(context).colorScheme.primaryContainer
+                                : Theme.of(context).colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '${portion}x',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: portion != 1.0 ? FontWeight.bold : FontWeight.normal,
+                                  color: portion != 1.0
+                                      ? Theme.of(context).colorScheme.onPrimaryContainer
+                                      : null,
+                                ),
+                              ),
+                              const SizedBox(width: 2),
+                              Icon(
+                                Icons.tune,
+                                size: 14,
+                                color: portion != 1.0
+                                    ? Theme.of(context).colorScheme.onPrimaryContainer
+                                    : null,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ],
-                  ),
+                  ],
                 ),
               ),
             ),
