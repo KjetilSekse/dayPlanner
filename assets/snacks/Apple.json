@@ -1,0 +1,12 @@
+{
+  "name": "Apple",
+  "serving_grams": 180,
+  "macros": {
+    "per_100g": {
+      "cals": "52",
+      "carbs": "14",
+      "fat": "0.2",
+      "protein": "0.3"
+    }
+  }
+}

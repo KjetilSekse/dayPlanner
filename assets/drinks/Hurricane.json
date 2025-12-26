@@ -1,0 +1,35 @@
+{
+  "name": "Hurricane",
+  "ingredients": [
+    "1 1/2 shot glass light rum",
+    "1 1/2 shot glass dark rum",
+    "3/4 shot glass fresh lime juice",
+    "3/4 shot glass fresh orange juice",
+    "3/8 shot glass passion fruit puree",
+    "3/8 shot glass simple syrup",
+    "1/8 shot glass grenadine",
+    "Ice cubes",
+    "Orange half-wheel for garnish",
+    "Preserved cherry for garnish"
+  ],
+  "instructions": [
+    "Add the light and dark rums, lime and orange juices, passion fruit puree, simple syrup and grenadine into a shaker with ice.",
+    "Shake until well-chilled.",
+    "Strain into a large Hurricane glass over fresh ice.",
+    "Garnish with an orange half-wheel and a preserved cherry."
+  ],
+  "macros": {
+    "per_100g": {
+      "cals": "166",
+      "carbs": "11",
+      "fat": "0",
+      "protein": "0"
+    },
+    "total": {
+      "cals": "357",
+      "carbs": "24",
+      "fat": "0",
+      "protein": "0"
+    }
+  }
+}

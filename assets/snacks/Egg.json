@@ -1,0 +1,12 @@
+{
+  "name": "Egg",
+  "serving_grams": 50,
+  "macros": {
+    "per_100g": {
+      "cals": "155",
+      "carbs": "1.1",
+      "fat": "11",
+      "protein": "13"
+    }
+  }
+}

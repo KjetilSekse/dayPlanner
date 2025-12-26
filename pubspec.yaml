@@ -21,6 +21,7 @@ flutter:
     - assets/menus/
     - assets/recipes/
     - assets/drinks/
+    - assets/snacks/
     - assets/breakfast/
     - assets/lunch/
     - assets/dinner/Fancy/

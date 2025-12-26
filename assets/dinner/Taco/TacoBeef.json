@@ -1,7 +1,7 @@
 {
-  "name": "Chicken Taco",
+  "name": "Beef Taco",
   "ingredients": [
-    "600g chicken thighs (8.8% fat)",
+    "600g minced meat (14% fat)",
     "4 tortillas (65g each) to serve",
     "1 jar of salsa to serve",
     "100g cucumber, diced",
@@ -11,24 +11,24 @@
     "2 tbsp taco seasoning"
   ],
   "instructions": [
-    "Season chicken thighs with taco seasoning.",
-    "Cook chicken in a dry non-stick pan until browned and cooked through.",
+    "Season minced meat with taco seasoning.",
+    "Cook minced meat in a dry non-stick pan until browned and cooked through.",
     "Warm tortillas in a dry pan or microwave.",
     "Assemble tacos with meat, salsa, cucumber, apple, and guacamole.",
     "Serve with tortilla chips on the side."
   ],
   "macros": {
     "per_100g": {
-      "cals": "150 kcal",
+      "cals": "158 kcal",
       "carbs": "12 g",
-      "fat": "7 g",
-      "protein": "9 g"
+      "fat": "9 g",
+      "protein": "7 g"
     },
     "total": {
-      "cals": "2660 kcal",
+      "cals": "2800 kcal",
       "carbs": "219 g",
-      "fat": "125 g",
-      "protein": "165 g"
+      "fat": "156 g",
+      "protein": "129 g"
     }
   }
 }

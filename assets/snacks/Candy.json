@@ -1,0 +1,12 @@
+{
+  "name": "Candy",
+  "serving_grams": 40,
+  "macros": {
+    "per_100g": {
+      "cals": "369",
+      "carbs": "88.5",
+      "fat": "0",
+      "protein": "3.8"
+    }
+  }
+}

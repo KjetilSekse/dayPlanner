@@ -1,0 +1,12 @@
+{
+  "name": "Banana",
+  "serving_grams": 120,
+  "macros": {
+    "per_100g": {
+      "cals": "89",
+      "carbs": "23",
+      "fat": "0.3",
+      "protein": "1.1"
+    }
+  }
+}

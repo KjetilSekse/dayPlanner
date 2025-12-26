@@ -1,0 +1,12 @@
+{
+  "name": "Double Chocolate Flarn",
+  "serving_grams": 30,
+  "macros": {
+    "per_100g": {
+      "cals": "510",
+      "carbs": "61.2",
+      "fat": "26.6",
+      "protein": "4.8"
+    }
+  }
+}

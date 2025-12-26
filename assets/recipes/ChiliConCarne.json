@@ -1,39 +1,40 @@
 {
-  "name": "Chili con Carne",
+  "name": "Chili con Carne with Rice",
   "ingredients": [
     "400 g kjøttdeig eller karbonadedeig",
-    "2 ss margarin eller olje til steking",
+    "1 ss margarin eller olje til steking",
     "1 stk finhakket løk",
     "2 båter finhakket hvitløk",
     "1 stk finhakket rød chili",
     "1 boks hermetiske tomater",
     "1 boks chilibønner",
-    "1 stk rød paprika i biter",
-    "1 stk grønn paprika i biter",
     "1,5 ts chilipulver",
     "0,5 ts malt spisskummen",
-    "0,5 ts salt"
+    "0,5 ts salt",
+    "300 g uncooked rice",
+    "10 ss rømme (1 per porsjon)"
   ],
   "instructions": [
-    "Ha margarin eller olje i en varm gryte. Vent til margarinen slutter ø bruse.",
+    "Ha margarin eller olje i en varm gryte. Vent til margarinen slutter å bruse.",
     "Brun kjøttdeig i to omganger sammen med løk, hvitløk og chili.",
     "Hell over hermetisk tomat og la det surre i 3-4 minutter.",
-    "Bland inn chilibønner, paprika og krydder.",
+    "Bland inn chilibønner og krydder.",
     "La det koke et par minutter og smak til med salt.",
-    "Server gjerne med salat og grove minibaguetter."
+    "Kok 300 g ris i kokende vann i ca. 10-15 minutter til den er ferdig.",
+    "Server chili over ris. Tilsett rømme etter smak."
   ],
   "macros": {
     "per_100g": {
-      "cals": "110",
-      "carbs": "8",
-      "fat": "5",
-      "protein": "7"
+      "cals": "145",
+      "carbs": "18",
+      "fat": "7",
+      "protein": "5"
     },
     "total": {
-      "cals": "880",
-      "carbs": "64",
-      "fat": "40",
-      "protein": "56"
+      "cals": "2955",
+      "carbs": "270",
+      "fat": "123",
+      "protein": "120"
     }
   }
 }

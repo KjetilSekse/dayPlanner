@@ -1,0 +1,12 @@
+{
+  "name": "Pringles",
+  "serving_grams": 30,
+  "macros": {
+    "per_100g": {
+      "cals": "520",
+      "carbs": "54",
+      "fat": "31",
+      "protein": "6.2"
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "Sweet Brunette",
+  "serving_grams": 50,
+  "ingredients": [
+    "1 egg",
+    "90g butter",
+    "220g Gjende turkjeks",
+    "150g marmelade",
+    "10 tablespoons sugar",
+    "5 tablespoons cocoa powder"
+  ],
+  "instructions": [
+    "Crush the turkjeks into fine crumbs",
+    "Melt the butter in a saucepan",
+    "Mix in sugar and cocoa powder",
+    "Add the egg and stir well",
+    "Mix in the crushed turkjeks",
+    "Spread marmelade on top or mix in",
+    "Press into a pan and refrigerate until set",
+    "Cut into pieces and serve"
+  ],
+  "macros": {
+    "per_100g": {
+      "cals": "407",
+      "carbs": "56",
+      "fat": "19",
+      "protein": "4.4"
+    }
+  }
+}

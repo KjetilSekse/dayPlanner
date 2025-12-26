@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/meal.dart';
 import '../models/menu.dart';
 import '../models/recipe.dart';
+import '../models/snack.dart';
 import '../services/notification_service.dart';
 import '../services/nutrition_service.dart';
 import '../services/storage_service.dart';
@@ -31,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, Recipe> _recipes = {};
   Map<MealCategory, Map<String, Recipe>> _categoryRecipes = {};
   Map<String, Recipe> _drinks = {};
+  Map<String, Snack> _snacks = {};
   Map<String, String> _selectedMenus = {}; // dateStr -> menuId
   Map<String, String> _customTimes = {}; // dateStr-mealIdx -> time
   Map<String, String> _mealReplacements = {}; // dateStr-mealIdx or dayIdx-mealIdx -> recipeId
@@ -38,8 +40,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Set<String> _completed = {};
   Set<String> _checkedIngredients = {};
   Map<String, Map<String, List<String>>> _dailyDrinks = {}; // dateStr -> drinkId -> list of timestamps
+  Map<String, Map<String, List<Map<String, dynamic>>>> _dailySnacks = {}; // dateStr -> snackId -> list of {timestamp, portion}
   bool _loaded = false;
-  int _selectedMealCategory = 4; // 0=Breakfast, 1=Lunch, 2=Dinner, 3=Drinks, 4=Today
+  int _selectedMealCategory = 5; // 0=Breakfast, 1=Lunch, 2=Dinner, 3=Drinks, 4=Snacks, 5=Today
   late PageController _pageController;
 
   // Date-based navigation
@@ -85,15 +88,17 @@ class _HomeScreenState extends State<HomeScreen> {
       final recipes = await _storage.loadRecipes();
       final categoryRecipes = await _storage.loadAllCategoryRecipes();
       final drinks = await _storage.loadDrinks();
+      final snacks = await _storage.loadSnacks();
 
       print('Drinks loaded in home screen: ${drinks.length}');
-      print('Drink keys: ${drinks.keys.toList()}');
+      print('Snacks loaded in home screen: ${snacks.length}');
 
       setState(() {
         _menus = menus;
         _recipes = recipes;
         _categoryRecipes = categoryRecipes;
         _drinks = drinks;
+        _snacks = snacks;
         _selectedMenus = _storage.loadSelectedMenusMap();
         _customTimes = _storage.loadCustomTimes();
         _mealReplacements = _storage.loadMealReplacements();
@@ -103,6 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _completed = _storage.loadCompleted();
         _checkedIngredients = _storage.loadCheckedIngredients();
         _dailyDrinks = _storage.loadDailyDrinksMap();
+        _dailySnacks = _storage.loadDailySnacksMap();
         _loaded = true;
       });
 
@@ -350,43 +356,42 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _showPortionPicker(BuildContext context, DateTime date, int mealIdx) {
     final currentPortion = _getPortionForMeal(date, mealIdx);
+    final controller = TextEditingController(text: currentPortion.toString());
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Set Portion'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Current: ${currentPortion}x'),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              children: [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0].map((portion) {
-                return ChoiceChip(
-                  label: Text('${portion}x'),
-                  selected: currentPortion == portion,
-                  onSelected: (_) async {
-                    setState(() {
-                      final dateStr = StorageService.dateToString(date);
-                      if (portion == 1.0) {
-                        _mealPortions.remove('$dateStr-$mealIdx');
-                      } else {
-                        _mealPortions['$dateStr-$mealIdx'] = portion;
-                      }
-                    });
-                    await _storage.saveMealPortions(_mealPortions);
-                    if (context.mounted) Navigator.pop(context);
-                  },
-                );
-              }).toList(),
-            ),
-          ],
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.numberWithOptions(decimal: true),
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Portion',
+            suffixText: 'x',
+            border: OutlineInputBorder(),
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final portion = double.tryParse(controller.text) ?? 1.0;
+              setState(() {
+                final dateStr = StorageService.dateToString(date);
+                if (portion == 1.0) {
+                  _mealPortions.remove('$dateStr-$mealIdx');
+                } else {
+                  _mealPortions['$dateStr-$mealIdx'] = portion;
+                }
+              });
+              await _storage.saveMealPortions(_mealPortions);
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('Save'),
           ),
         ],
       ),
@@ -404,8 +409,8 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    // Show PageView for Today tab, simple scaffold for cookbook tabs
-    if (_selectedMealCategory == 4) {
+    // Show PageView for Today tab (index 5)
+    if (_selectedMealCategory == 5) {
       return _buildDayPageView();
     }
 
@@ -422,6 +427,23 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         body: _buildDrinks(),
+        bottomNavigationBar: _buildBottomNav(),
+      );
+    }
+
+    // Handle Snacks tab (index 4)
+    if (_selectedMealCategory == 4) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Snacks'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: () => _showSettings(context),
+            ),
+          ],
+        ),
+        body: _buildSnacksTab(),
         bottomNavigationBar: _buildBottomNav(),
       );
     }
@@ -546,6 +568,11 @@ class _HomeScreenState extends State<HomeScreen> {
           label: 'Drinks',
         ),
         NavigationDestination(
+          icon: Icon(Icons.cookie_outlined),
+          selectedIcon: Icon(Icons.cookie),
+          label: 'Snacks',
+        ),
+        NavigationDestination(
           icon: Icon(Icons.today_outlined),
           selectedIcon: Icon(Icons.today),
           label: 'Today',
@@ -571,6 +598,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final meals = _getMealsForDate(date);
     final dateStr = StorageService.dateToString(date);
     final dayDrinks = _dailyDrinks[dateStr] ?? {};
+    final daySnacks = _dailySnacks[dateStr] ?? {};
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -631,6 +659,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           );
         }),
+        // Snacks section
+        _buildSnacksSection(date, daySnacks),
+        const SizedBox(height: 8),
         // Drinks section
         _buildDrinksSection(date, dayDrinks),
       ],
@@ -639,6 +670,35 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildDailySummary(DateTime date) {
     final macros = _nutritionService.getMacrosForDate(date);
+
+    // Add snack macros
+    final dateStr = StorageService.dateToString(date);
+    final daySnacks = _dailySnacks[dateStr] ?? {};
+    int snackCalories = 0;
+    int snackProtein = 0;
+    int snackCarbs = 0;
+    int snackFat = 0;
+
+    for (final entry in daySnacks.entries) {
+      final snackId = entry.key;
+      final entries = entry.value;
+      final snack = _snacks[snackId];
+      if (snack != null) {
+        for (final snackEntry in entries) {
+          final portion = (snackEntry['portion'] as num?)?.toDouble() ?? 1.0;
+          snackCalories += (double.parse(snack.perServing.cals) * portion).round();
+          snackProtein += (double.parse(snack.perServing.protein) * portion).round();
+          snackCarbs += (double.parse(snack.perServing.carbs) * portion).round();
+          snackFat += (double.parse(snack.perServing.fat) * portion).round();
+        }
+      }
+    }
+
+    final totalCalories = macros.calories + snackCalories;
+    final totalProtein = macros.protein + snackProtein;
+    final totalCarbs = macros.carbs + snackCarbs;
+    final totalFat = macros.fat + snackFat;
+
     return Card(
       color: Theme.of(context).colorScheme.primaryContainer,
       child: Padding(
@@ -646,10 +706,10 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _buildMacroItem('Calories', '${macros.calories}', 'kcal'),
-            _buildMacroItem('Protein', '${macros.protein}', 'g'),
-            _buildMacroItem('Carbs', '${macros.carbs}', 'g'),
-            _buildMacroItem('Fat', '${macros.fat}', 'g'),
+            _buildMacroItem('Calories', '$totalCalories', 'kcal'),
+            _buildMacroItem('Protein', '$totalProtein', 'g'),
+            _buildMacroItem('Carbs', '$totalCarbs', 'g'),
+            _buildMacroItem('Fat', '$totalFat', 'g'),
           ],
         ),
       ),
@@ -1080,6 +1140,625 @@ class _HomeScreenState extends State<HomeScreen> {
             }).toList(),
           ),
         ),
+      ),
+    );
+  }
+
+  // ============ SNACKS ============
+
+  Widget _buildSnackMacroTable(Snack snack) {
+    return Table(
+      border: TableBorder.all(
+        color: Theme.of(context).dividerColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      columnWidths: const {
+        0: FlexColumnWidth(1.5),
+        1: FlexColumnWidth(1),
+        2: FlexColumnWidth(1),
+      },
+      children: [
+        TableRow(
+          decoration: BoxDecoration(
+            color: Colors.black12,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+          ),
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(8),
+              child: Text('', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            const Padding(
+              padding: EdgeInsets.all(8),
+              child: Text('Per 100g', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Text('Per ${snack.servingGrams.round()}g', style: const TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+        _buildSnackMacroRow('Calories', snack.per100g.cals, snack.perServing.cals),
+        _buildSnackMacroRow('Carbs', snack.per100g.carbs, snack.perServing.carbs),
+        _buildSnackMacroRow('Fat', snack.per100g.fat, snack.perServing.fat),
+        _buildSnackMacroRow('Protein', snack.per100g.protein, snack.perServing.protein),
+      ],
+    );
+  }
+
+  TableRow _buildSnackMacroRow(String label, String per100g, String perServing) {
+    return TableRow(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8),
+          child: Text(label),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(8),
+          child: Text(per100g),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(8),
+          child: Text(perServing),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSnacksSection(DateTime date, Map<String, List<Map<String, dynamic>>> daySnacks) {
+    int totalCalories = 0;
+    int totalProtein = 0;
+    int totalCarbs = 0;
+    int totalCount = 0;
+
+    for (final entry in daySnacks.entries) {
+      final snackId = entry.key;
+      final entries = entry.value;
+      final snack = _snacks[snackId];
+      if (snack != null) {
+        for (final snackEntry in entries) {
+          final portion = (snackEntry['portion'] as num?)?.toDouble() ?? 1.0;
+          totalCalories += (double.parse(snack.perServing.cals) * portion).round();
+          totalProtein += (double.parse(snack.perServing.protein) * portion).round();
+          totalCarbs += (double.parse(snack.perServing.carbs) * portion).round();
+          totalCount++;
+        }
+      }
+    }
+
+    return Card(
+      child: ExpansionTile(
+        leading: const Icon(Icons.cookie),
+        title: Row(
+          children: [
+            const Text('Snacks'),
+            if (daySnacks.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Text(
+                '($totalCalories cal)',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ],
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (daySnacks.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$totalCount',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                ),
+              ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline),
+              onPressed: () => _showSnackPicker(context, date),
+              tooltip: 'Add snack',
+            ),
+          ],
+        ),
+        children: [
+          if (daySnacks.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('No snacks added yet. Tap + to add.'),
+            )
+          else ...[
+            // Total summary row
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Total',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  Text(
+                    '$totalCalories cal • ${totalProtein}g protein • ${totalCarbs}g carbs',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            // Individual snacks grouped by type
+            ...daySnacks.entries.map((entry) {
+              final snackId = entry.key;
+              final entries = entry.value;
+              final snack = _snacks[snackId];
+
+              if (snack == null) return const SizedBox.shrink();
+
+              // Calculate totals for this snack type
+              int snackTypeCals = 0;
+              double snackTypeProtein = 0;
+              for (final snackEntry in entries) {
+                final portion = (snackEntry['portion'] as num?)?.toDouble() ?? 1.0;
+                snackTypeCals += (double.parse(snack.perServing.cals) * portion).round();
+                snackTypeProtein += double.parse(snack.perServing.protein) * portion;
+              }
+
+              return ExpansionTile(
+                leading: const Icon(Icons.cookie),
+                title: Text(snack.name),
+                subtitle: Text('$snackTypeCals cal • ${snackTypeProtein.toStringAsFixed(1)}g protein'),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline),
+                      onPressed: () => _removeSnackLast(date, snackId),
+                      tooltip: 'Remove one',
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.secondaryContainer,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        'x${entries.length}',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSecondaryContainer,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline),
+                      onPressed: () => _addSnack(date, snackId, 1.0),
+                      tooltip: 'Add one',
+                    ),
+                  ],
+                ),
+                children: entries.asMap().entries.map((snackEntry) {
+                  final index = snackEntry.key;
+                  final data = snackEntry.value;
+                  final portion = (data['portion'] as num?)?.toDouble() ?? 1.0;
+                  final timestamp = data['timestamp'] as String? ?? '';
+                  final scaledCals = (double.parse(snack.perServing.cals) * portion).round();
+                  final scaledProtein = (double.parse(snack.perServing.protein) * portion).toStringAsFixed(1);
+
+                  return ListTile(
+                    leading: const Icon(Icons.access_time, size: 20),
+                    title: Text('Entry ${index + 1} - ${portion}x'),
+                    subtitle: Text('$scaledCals cal • ${scaledProtein}g protein • Time: $timestamp'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        GestureDetector(
+                          onTap: () => _showSnackPortionPicker(context, date, snackId, index, portion),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: portion != 1.0
+                                  ? Theme.of(context).colorScheme.primaryContainer
+                                  : Theme.of(context).colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${portion}x',
+                              style: TextStyle(
+                                fontWeight: portion != 1.0 ? FontWeight.bold : FontWeight.normal,
+                                color: portion != 1.0
+                                    ? Theme.of(context).colorScheme.onPrimaryContainer
+                                    : null,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 20),
+                          onPressed: () => _removeSnack(date, snackId, index),
+                          tooltip: 'Delete this entry',
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              );
+            }),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSnacksTab() {
+    final today = DateTime.now();
+    final todayStr = StorageService.dateToString(today);
+    final todaySnacks = _dailySnacks[todayStr] ?? {};
+
+    int totalCalories = 0;
+    int totalProtein = 0;
+    int totalCarbs = 0;
+
+    for (final entry in todaySnacks.entries) {
+      final snackId = entry.key;
+      final entries = entry.value;
+      final snack = _snacks[snackId];
+      if (snack != null) {
+        for (final snackEntry in entries) {
+          final portion = (snackEntry['portion'] as num?)?.toDouble() ?? 1.0;
+          totalCalories += (double.parse(snack.perServing.cals) * portion).round();
+          totalProtein += (double.parse(snack.perServing.protein) * portion).round();
+          totalCarbs += (double.parse(snack.perServing.carbs) * portion).round();
+        }
+      }
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // Today's snacks summary card
+        if (todaySnacks.isNotEmpty)
+          Card(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Today\'s Snacks',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                      Text(
+                        '${todaySnacks.values.fold(0, (sum, entries) => sum + entries.length)} item${todaySnacks.values.fold(0, (sum, entries) => sum + entries.length) == 1 ? '' : 's'}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '$totalCalories cal',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                      Text(
+                        '${totalProtein}g protein • ${totalCarbs}g carbs',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        if (todaySnacks.isNotEmpty) const SizedBox(height: 16),
+        Text(
+          'Available Snacks',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (_snacks.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('No snacks available yet'),
+            ),
+          )
+        else
+          ..._snacks.entries.map((entry) {
+            final snack = entry.value;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Card(
+                child: ExpansionTile(
+                  leading: const Icon(Icons.cookie),
+                  title: Text(snack.name),
+                  subtitle: Text(
+                    '${snack.perServing.cals} cal per serving',
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.add_circle_outline),
+                    onPressed: () {
+                      _showSnackPortionPickerForNew(context, today, entry.key);
+                    },
+                    tooltip: 'Add to today',
+                  ),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Ingredients (if present)
+                          if (snack.hasRecipe) ...[
+                            const Text(
+                              'Ingredients',
+                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                            ),
+                            const SizedBox(height: 8),
+                            ...snack.ingredients!.map((ingredient) => Padding(
+                              padding: const EdgeInsets.only(left: 8, bottom: 4),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('• '),
+                                  Expanded(child: Text(ingredient)),
+                                ],
+                              ),
+                            )),
+                            const SizedBox(height: 16),
+                          ],
+                          // Instructions (if present)
+                          if (snack.instructions != null && snack.instructions!.isNotEmpty) ...[
+                            const Text(
+                              'Instructions',
+                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                            ),
+                            const SizedBox(height: 8),
+                            ...snack.instructions!.asMap().entries.map((entry) => Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    width: 24,
+                                    height: 24,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Text(
+                                      '${entry.key + 1}',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                        color: Theme.of(context).primaryColor,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: Text(entry.value)),
+                                ],
+                              ),
+                            )),
+                            const SizedBox(height: 16),
+                          ],
+                          // Macros table
+                          const Text(
+                            'Macros',
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                          ),
+                          const SizedBox(height: 8),
+                          _buildSnackMacroTable(snack),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+      ],
+    );
+  }
+
+  Future<void> _addSnack(DateTime date, String snackId, double portion) async {
+    final now = DateTime.now();
+    final timestamp = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    final dateStr = StorageService.dateToString(date);
+
+    setState(() {
+      _dailySnacks[dateStr] ??= {};
+      _dailySnacks[dateStr]![snackId] ??= [];
+      _dailySnacks[dateStr]![snackId]!.add({
+        'timestamp': timestamp,
+        'portion': portion,
+      });
+    });
+    await _storage.saveDailySnacksMap(_dailySnacks);
+  }
+
+  Future<void> _removeSnack(DateTime date, String snackId, int index) async {
+    final dateStr = StorageService.dateToString(date);
+    setState(() {
+      if (_dailySnacks[dateStr] != null && _dailySnacks[dateStr]![snackId] != null) {
+        if (index < _dailySnacks[dateStr]![snackId]!.length) {
+          _dailySnacks[dateStr]![snackId]!.removeAt(index);
+        }
+
+        // Clean up empty entries
+        if (_dailySnacks[dateStr]![snackId]!.isEmpty) {
+          _dailySnacks[dateStr]!.remove(snackId);
+          if (_dailySnacks[dateStr]!.isEmpty) {
+            _dailySnacks.remove(dateStr);
+          }
+        }
+      }
+    });
+    await _storage.saveDailySnacksMap(_dailySnacks);
+  }
+
+  Future<void> _removeSnackLast(DateTime date, String snackId) async {
+    final dateStr = StorageService.dateToString(date);
+    setState(() {
+      if (_dailySnacks[dateStr] != null && _dailySnacks[dateStr]![snackId] != null) {
+        _dailySnacks[dateStr]![snackId]!.removeLast();
+
+        // Clean up empty entries
+        if (_dailySnacks[dateStr]![snackId]!.isEmpty) {
+          _dailySnacks[dateStr]!.remove(snackId);
+          if (_dailySnacks[dateStr]!.isEmpty) {
+            _dailySnacks.remove(dateStr);
+          }
+        }
+      }
+    });
+    await _storage.saveDailySnacksMap(_dailySnacks);
+  }
+
+  Future<void> _updateSnackPortion(DateTime date, String snackId, int index, double portion) async {
+    final dateStr = StorageService.dateToString(date);
+    setState(() {
+      if (_dailySnacks[dateStr] != null &&
+          _dailySnacks[dateStr]![snackId] != null &&
+          index < _dailySnacks[dateStr]![snackId]!.length) {
+        _dailySnacks[dateStr]![snackId]![index]['portion'] = portion;
+      }
+    });
+    await _storage.saveDailySnacksMap(_dailySnacks);
+  }
+
+  void _showSnackPicker(BuildContext context, DateTime date) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Snack'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: _snacks.entries.map((entry) {
+              final snack = entry.value;
+              return ListTile(
+                leading: const Icon(Icons.cookie),
+                title: Text(snack.name),
+                subtitle: Text('${snack.perServing.cals} cal'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showSnackPortionPickerForNew(context, date, entry.key);
+                },
+              );
+            }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showSnackPortionPickerForNew(BuildContext context, DateTime date, String snackId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('How many ${_snacks[snackId]?.name ?? 'snacks'}?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0].map((portion) {
+                return ChoiceChip(
+                  label: Text('${portion}x'),
+                  selected: false,
+                  onSelected: (_) {
+                    Navigator.pop(context);
+                    _addSnack(date, snackId, portion);
+                  },
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSnackPortionPicker(BuildContext context, DateTime date, String snackId, int index, double currentPortion) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Change Amount'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Current: ${currentPortion}x'),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0].map((portion) {
+                return ChoiceChip(
+                  label: Text('${portion}x'),
+                  selected: currentPortion == portion,
+                  onSelected: (_) {
+                    Navigator.pop(context);
+                    _updateSnackPortion(date, snackId, index, portion);
+                  },
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
       ),
     );
   }

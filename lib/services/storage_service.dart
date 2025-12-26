@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/menu.dart';
 import '../models/recipe.dart';
+import '../models/snack.dart';
 
 enum MealCategory { breakfast, lunch, dinner }
 
@@ -36,6 +37,17 @@ class StorageService {
     'AmarettoSour',
     'GrevensCiderSugarFree',
     'BulmersRedBerryLime',
+    'Hurricane',
+  ];
+
+  static const _snackFiles = [
+    'Egg',
+    'Apple',
+    'Banana',
+    'Candy',
+    'SweetBrunette',
+    'Pringles',
+    'DoubleChocolateFlarn',
   ];
 
   // Recipes organized by meal category
@@ -52,6 +64,8 @@ class StorageService {
       'recipes/ButterChicken',
       'recipes/Goulash',
       'recipes/Lasagna',
+      'dinner/Taco/TacoChicken',
+      'dinner/Taco/TacoBeef',
       'recipes/MarinatedPorkWithPotatos',
       'recipes/MeatballSoup',
       'recipes/PastaParmesan',
@@ -93,7 +107,8 @@ class StorageService {
     final hasMenus = prefs.getString('selectedMenus') != null;
     final hasCompleted = prefs.getStringList('done')?.isNotEmpty ?? false;
     final hasDrinks = prefs.getString('dailyDrinksV2') != null;
-    return !hasReplacements && !hasMenus && !hasCompleted && !hasDrinks;
+    final hasSnacks = prefs.getString('dailySnacks') != null;
+    return !hasReplacements && !hasMenus && !hasCompleted && !hasDrinks && !hasSnacks;
   }
 
   // Restore data from backup file if prefs are empty
@@ -137,6 +152,9 @@ class StorageService {
       if (data['dailyDrinksV2'] != null) {
         await prefs.setString('dailyDrinksV2', json.encode(data['dailyDrinksV2']));
       }
+      if (data['dailySnacks'] != null) {
+        await prefs.setString('dailySnacks', json.encode(data['dailySnacks']));
+      }
       if (data['notif'] != null) {
         await prefs.setBool('notif', data['notif'] as bool);
       }
@@ -170,6 +188,9 @@ class StorageService {
         'checkedIngredients': prefs.getStringList('checkedIngredients'),
         'dailyDrinksV2': prefs.getString('dailyDrinksV2') != null
             ? json.decode(prefs.getString('dailyDrinksV2')!)
+            : null,
+        'dailySnacks': prefs.getString('dailySnacks') != null
+            ? json.decode(prefs.getString('dailySnacks')!)
             : null,
         'notif': prefs.getBool('notif'),
         'vib': prefs.getBool('vib'),
@@ -239,6 +260,23 @@ class StorageService {
     return drinks;
   }
 
+  Future<Map<String, Snack>> loadSnacks() async {
+    final snacks = <String, Snack>{};
+    debugPrint('Loading snacks: $_snackFiles');
+    for (final id in _snackFiles) {
+      try {
+        final jsonString = await rootBundle.loadString('assets/snacks/$id.json');
+        final data = json.decode(jsonString) as Map<String, dynamic>;
+        snacks[id] = Snack.fromJson(id, data);
+        debugPrint('Successfully loaded snack: $id');
+      } catch (e) {
+        debugPrint('Failed to load snack $id: $e');
+      }
+    }
+    debugPrint('Total snacks loaded: ${snacks.length}');
+    return snacks;
+  }
+
   // Load recipes by meal category
   Future<Map<String, Recipe>> loadRecipesByCategory(MealCategory category) async {
     final recipes = <String, Recipe>{};
@@ -293,7 +331,7 @@ class StorageService {
     '6-1': 'ProteinPancakes',    // Sunday lunch
     // Dinner
     '0-2': 'Goulash',                        // Monday dinner
-    '1-2': 'ButterChicken',                  // Tuesday dinner
+    '1-2': 'TacoChicken',                  // Tuesday dinner
     '2-2': 'ButterChicken',                  // Wednesday dinner
     '3-2': 'BarbequeChickenWithTortellini',  // Thursday dinner
     '4-2': 'Lasagna',                        // Friday dinner
@@ -556,5 +594,53 @@ class StorageService {
   Future<void> saveDailyDrinks(Map<int, Map<String, List<String>>> dailyDrinks) async {
     final encoded = dailyDrinks.map((k, v) => MapEntry(k.toString(), v));
     await prefs.setString('dailyDrinks', json.encode(encoded));
+  }
+
+  // Daily snacks tracking - dateStr -> snackId -> list of {timestamp, portion}
+  Map<String, Map<String, List<Map<String, dynamic>>>> loadDailySnacksMap() {
+    final snacksJson = prefs.getString('dailySnacks');
+    if (snacksJson == null) return {};
+
+    try {
+      final decoded = json.decode(snacksJson) as Map<String, dynamic>;
+      final result = <String, Map<String, List<Map<String, dynamic>>>>{};
+
+      for (final entry in decoded.entries) {
+        final dateStr = entry.key;
+        final snacksMap = <String, List<Map<String, dynamic>>>{};
+
+        for (final snackEntry in (entry.value as Map<String, dynamic>).entries) {
+          final snackId = snackEntry.key;
+          final value = snackEntry.value;
+
+          if (value is List) {
+            snacksMap[snackId] = value.map((item) {
+              if (item is Map) {
+                return Map<String, dynamic>.from(item);
+              }
+              // Legacy support: if it's just a string timestamp
+              return {'timestamp': item.toString(), 'portion': 1.0};
+            }).toList();
+          }
+        }
+
+        result[dateStr] = snacksMap;
+      }
+      return result;
+    } catch (e) {
+      debugPrint('Error loading daily snacks, resetting: $e');
+      prefs.remove('dailySnacks');
+      return {};
+    }
+  }
+
+  Map<String, List<Map<String, dynamic>>> getSnacksForDate(
+      DateTime date, Map<String, Map<String, List<Map<String, dynamic>>>> dailySnacks) {
+    return dailySnacks[dateToString(date)] ?? {};
+  }
+
+  Future<void> saveDailySnacksMap(Map<String, Map<String, List<Map<String, dynamic>>>> dailySnacks) async {
+    await prefs.setString('dailySnacks', json.encode(dailySnacks));
+    await backupToFile();
   }
 }

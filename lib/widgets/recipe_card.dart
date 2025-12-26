@@ -139,13 +139,14 @@ class RecipeCard extends StatelessWidget {
                   mealId: mealId,
                   checkedIngredients: checkedIngredients,
                   onIngredientChanged: onIngredientChanged,
+                  portion: portion,
                 ),
                 const SizedBox(height: 16),
                 // Instructions section
                 _InstructionsSection(recipe: recipe),
                 const SizedBox(height: 16),
                 // Macros section
-                _MacrosSection(recipe: recipe),
+                _MacrosSection(recipe: recipe, portion: portion),
               ],
             ),
           ),
@@ -157,8 +158,21 @@ class RecipeCard extends StatelessWidget {
 
 class _MacrosSection extends StatelessWidget {
   final Recipe recipe;
+  final double portion;
 
-  const _MacrosSection({required this.recipe});
+  const _MacrosSection({required this.recipe, this.portion = 1.0});
+
+  String _scaleValue(String value) {
+    if (portion == 1.0) return value;
+    final numValue = double.tryParse(value);
+    if (numValue == null) return value;
+    final scaled = numValue * portion;
+    // Return integer if it's a whole number, otherwise 1 decimal place
+    if (scaled == scaled.roundToDouble()) {
+      return scaled.round().toString();
+    }
+    return scaled.toStringAsFixed(1);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -166,9 +180,24 @@ class _MacrosSection extends StatelessWidget {
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
         tilePadding: EdgeInsets.zero,
-        title: const Text(
-          'Macros',
-          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+        title: Row(
+          children: [
+            const Text(
+              'Macros',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+            ),
+            if (portion != 1.0) ...[
+              const SizedBox(width: 8),
+              Text(
+                '(${portion}x)',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ],
         ),
         children: [
           _buildMacroTable(context),
@@ -190,10 +219,10 @@ class _MacrosSection extends StatelessWidget {
       },
       children: [
         _buildHeaderRow(),
-        _buildDataRow('Calories', recipe.per100g.cals, recipe.total.cals),
-        _buildDataRow('Carbs', recipe.per100g.carbs, recipe.total.carbs),
-        _buildDataRow('Fat', recipe.per100g.fat, recipe.total.fat),
-        _buildDataRow('Protein', recipe.per100g.protein, recipe.total.protein),
+        _buildDataRow('Calories', recipe.per100g.cals, _scaleValue(recipe.total.cals)),
+        _buildDataRow('Carbs', recipe.per100g.carbs, _scaleValue(recipe.total.carbs)),
+        _buildDataRow('Fat', recipe.per100g.fat, _scaleValue(recipe.total.fat)),
+        _buildDataRow('Protein', recipe.per100g.protein, _scaleValue(recipe.total.protein)),
       ],
     );
   }
@@ -246,13 +275,48 @@ class _IngredientsSection extends StatelessWidget {
   final String mealId;
   final Set<String> checkedIngredients;
   final void Function(String ingredientId, bool? value) onIngredientChanged;
+  final double portion;
 
   const _IngredientsSection({
     required this.recipe,
     required this.mealId,
     required this.checkedIngredients,
     required this.onIngredientChanged,
+    this.portion = 1.0,
   });
+
+  /// Scales ingredient amounts by the portion multiplier.
+  /// Handles formats like "200g chicken", "2 eggs", "1.5 cups flour"
+  String _scaleIngredient(String ingredient) {
+    if (portion == 1.0) return ingredient;
+
+    // Match a number (with optional decimal) at the start, followed by optional unit
+    final regex = RegExp(r'^(\d+(?:\.\d+)?)\s*(.*)$');
+    final match = regex.firstMatch(ingredient.trim());
+
+    if (match != null) {
+      final number = double.tryParse(match.group(1)!);
+      if (number != null) {
+        final rest = match.group(2)!;
+        final scaled = number * portion;
+
+        // Format the scaled number nicely
+        String formattedNumber;
+        if (scaled == scaled.roundToDouble()) {
+          formattedNumber = scaled.round().toString();
+        } else if (scaled < 1) {
+          // For small values, show more precision
+          formattedNumber = scaled.toStringAsFixed(2).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
+        } else {
+          formattedNumber = scaled.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '');
+        }
+
+        return '$formattedNumber $rest'.trim();
+      }
+    }
+
+    return ingredient;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -260,15 +324,31 @@ class _IngredientsSection extends StatelessWidget {
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
         tilePadding: EdgeInsets.zero,
-        title: const Text(
-          'Ingredients',
-          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+        title: Row(
+          children: [
+            const Text(
+              'Ingredients',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+            ),
+            if (portion != 1.0) ...[
+              const SizedBox(width: 8),
+              Text(
+                '(${portion}x)',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ],
         ),
         children: recipe.ingredients.asMap().entries.map((entry) {
           final idx = entry.key;
           final ingredient = entry.value;
           final ingredientId = '$mealId-$idx';
           final isChecked = checkedIngredients.contains(ingredientId);
+          final scaledIngredient = _scaleIngredient(ingredient);
 
           return InkWell(
             onTap: () => onIngredientChanged(ingredientId, !isChecked),
@@ -283,7 +363,7 @@ class _IngredientsSection extends StatelessWidget {
                   ),
                   Expanded(
                     child: Text(
-                      ingredient,
+                      scaledIngredient,
                       style: TextStyle(
                         decoration: isChecked ? TextDecoration.lineThrough : null,
                         color: isChecked ? Colors.grey : null,
