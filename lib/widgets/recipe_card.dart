@@ -176,15 +176,17 @@ class _MacrosSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final weight = recipe.getWeightForPortion(portion);
+
     return Theme(
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
         tilePadding: EdgeInsets.zero,
         title: Row(
           children: [
-            const Text(
-              'Macros',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+            Text(
+              weight != null ? 'Macros / Weight' : 'Macros',
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
             ),
             if (portion != 1.0) ...[
               const SizedBox(width: 8),
@@ -200,13 +202,13 @@ class _MacrosSection extends StatelessWidget {
           ],
         ),
         children: [
-          _buildMacroTable(context),
+          _buildMacroTable(context, weight),
         ],
       ),
     );
   }
 
-  Widget _buildMacroTable(BuildContext context) {
+  Widget _buildMacroTable(BuildContext context, double? weight) {
     return Table(
       border: TableBorder.all(
         color: Theme.of(context).dividerColor,
@@ -223,6 +225,8 @@ class _MacrosSection extends StatelessWidget {
         _buildDataRow('Carbs', recipe.per100g.carbs, _scaleValue(recipe.total.carbs)),
         _buildDataRow('Fat', recipe.per100g.fat, _scaleValue(recipe.total.fat)),
         _buildDataRow('Protein', recipe.per100g.protein, _scaleValue(recipe.total.protein)),
+        if (weight != null)
+          _buildDataRow('Weight', '-', '${weight.toStringAsFixed(0)} g'),
       ],
     );
   }

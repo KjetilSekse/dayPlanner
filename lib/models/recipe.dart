@@ -35,6 +35,7 @@ class Recipe {
   final List<String> instructions;
   final Macros per100g;
   final Macros total;
+  final double? servingGrams; // Weight of one portion in grams (optional)
 
   const Recipe({
     required this.id,
@@ -43,7 +44,12 @@ class Recipe {
     required this.instructions,
     required this.per100g,
     required this.total,
+    this.servingGrams,
   });
+
+  // Calculate weight for a given portion (returns null if servingGrams not set)
+  double? getWeightForPortion(double portion) =>
+      servingGrams != null ? servingGrams! * portion : null;
 
   factory Recipe.fromJson(String id, Map<String, dynamic> json) {
     final macros = json['macros'] as Map<String, dynamic>;
@@ -54,6 +60,7 @@ class Recipe {
       instructions: List<String>.from(json['instructions'] as List),
       per100g: Macros.fromJson(macros['per_100g'] as Map<String, dynamic>),
       total: Macros.fromJson(macros['total'] as Map<String, dynamic>),
+      servingGrams: (json['serving_grams'] as num?)?.toDouble(),
     );
   }
 
@@ -61,6 +68,7 @@ class Recipe {
     'name': name,
     'ingredients': ingredients,
     'instructions': instructions,
+    if (servingGrams != null) 'serving_grams': servingGrams,
     'macros': {
       'per_100g': per100g.toJson(),
       'total': total.toJson(),

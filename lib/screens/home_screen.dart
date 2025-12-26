@@ -357,43 +357,64 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showPortionPicker(BuildContext context, DateTime date, int mealIdx) {
     final currentPortion = _getPortionForMeal(date, mealIdx);
     final controller = TextEditingController(text: currentPortion.toString());
+    final recipe = _getReplacementRecipe(date, mealIdx);
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Set Portion'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.numberWithOptions(decimal: true),
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Portion',
-            suffixText: 'x',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              final portion = double.tryParse(controller.text) ?? 1.0;
-              setState(() {
-                final dateStr = StorageService.dateToString(date);
-                if (portion == 1.0) {
-                  _mealPortions.remove('$dateStr-$mealIdx');
-                } else {
-                  _mealPortions['$dateStr-$mealIdx'] = portion;
-                }
-              });
-              await _storage.saveMealPortions(_mealPortions);
-              if (context.mounted) Navigator.pop(context);
-            },
-            child: const Text('Save'),
-          ),
-        ],
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final portion = double.tryParse(controller.text) ?? 1.0;
+          final weight = recipe?.getWeightForPortion(portion);
+
+          return AlertDialog(
+            title: const Text('Set Portion'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: controller,
+                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Portion',
+                    suffixText: 'x',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => setDialogState(() {}),
+                ),
+                if (weight != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Weight: ${weight.toStringAsFixed(0)} g',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  final portion = double.tryParse(controller.text) ?? 1.0;
+                  setState(() {
+                    final dateStr = StorageService.dateToString(date);
+                    if (portion == 1.0) {
+                      _mealPortions.remove('$dateStr-$mealIdx');
+                    } else {
+                      _mealPortions['$dateStr-$mealIdx'] = portion;
+                    }
+                  });
+                  await _storage.saveMealPortions(_mealPortions);
+                  if (context.mounted) Navigator.pop(context);
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
