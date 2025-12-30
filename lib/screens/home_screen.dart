@@ -76,6 +76,54 @@ class _HomeScreenState extends State<HomeScreen> {
     return '$dayName, $monthDay';
   }
 
+  /// Returns (daysSinceLastDrink, recordDaysWithoutDrinking)
+  (int?, int) _getDrinkStats() {
+    if (_dailyDrinks.isEmpty) return (null, 0);
+
+    // Get all dates with drinks, sorted
+    final datesWithDrinks = <DateTime>[];
+    for (final dateStr in _dailyDrinks.keys) {
+      final drinks = _dailyDrinks[dateStr];
+      if (drinks != null && drinks.isNotEmpty) {
+        final hasEntries = drinks.values.any((timestamps) => timestamps.isNotEmpty);
+        if (hasEntries) {
+          final parts = dateStr.split('-');
+          if (parts.length == 3) {
+            datesWithDrinks.add(DateTime(
+              int.parse(parts[0]),
+              int.parse(parts[1]),
+              int.parse(parts[2]),
+            ));
+          }
+        }
+      }
+    }
+
+    if (datesWithDrinks.isEmpty) return (null, 0);
+
+    datesWithDrinks.sort();
+
+    // Calculate days since last drink
+    final today = DateTime.now();
+    final todayOnly = DateTime(today.year, today.month, today.day);
+    final lastDrinkDate = datesWithDrinks.last;
+    final lastDrinkOnly = DateTime(lastDrinkDate.year, lastDrinkDate.month, lastDrinkDate.day);
+    final daysSinceLastDrink = todayOnly.difference(lastDrinkOnly).inDays;
+
+    // Calculate record (longest gap between drinking days, including current streak)
+    int record = daysSinceLastDrink; // Current streak could be the record
+    for (int i = 1; i < datesWithDrinks.length; i++) {
+      final prev = datesWithDrinks[i - 1];
+      final curr = datesWithDrinks[i];
+      final gap = curr.difference(prev).inDays - 1; // Days between (not including drink days)
+      if (gap > record) {
+        record = gap;
+      }
+    }
+
+    return (daysSinceLastDrink, record);
+  }
+
   @override
   void dispose() {
     _pageController.dispose();
@@ -993,9 +1041,47 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
 
+    // Get drink stats
+    final (daysSinceDrink, record) = _getDrinkStats();
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        // Days since last drink info bar
+        if (daysSinceDrink != null)
+          Card(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '$daysSinceDrink days since last drink',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                  Text(
+                    '  •  ',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  Text(
+                    'Record: $record days',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        if (daysSinceDrink != null) const SizedBox(height: 8),
         // Today's drinks summary card
         if (todayDrinks.isNotEmpty)
           Card(
