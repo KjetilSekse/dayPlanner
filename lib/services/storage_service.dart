@@ -108,7 +108,8 @@ class StorageService {
     final hasCompleted = prefs.getStringList('done')?.isNotEmpty ?? false;
     final hasDrinks = prefs.getString('dailyDrinksV2') != null;
     final hasSnacks = prefs.getString('dailySnacks') != null;
-    return !hasReplacements && !hasMenus && !hasCompleted && !hasDrinks && !hasSnacks;
+    final hasLiquids = prefs.getString('dailyLiquids') != null;
+    return !hasReplacements && !hasMenus && !hasCompleted && !hasDrinks && !hasSnacks && !hasLiquids;
   }
 
   // Restore data from backup file if prefs are empty
@@ -155,6 +156,12 @@ class StorageService {
       if (data['dailySnacks'] != null) {
         await prefs.setString('dailySnacks', json.encode(data['dailySnacks']));
       }
+      if (data['dailyWater'] != null) {
+        await prefs.setString('dailyWater', json.encode(data['dailyWater']));
+      }
+      if (data['dailyLiquids'] != null) {
+        await prefs.setString('dailyLiquids', json.encode(data['dailyLiquids']));
+      }
       if (data['notif'] != null) {
         await prefs.setBool('notif', data['notif'] as bool);
       }
@@ -191,6 +198,12 @@ class StorageService {
             : null,
         'dailySnacks': prefs.getString('dailySnacks') != null
             ? json.decode(prefs.getString('dailySnacks')!)
+            : null,
+        'dailyWater': prefs.getString('dailyWater') != null
+            ? json.decode(prefs.getString('dailyWater')!)
+            : null,
+        'dailyLiquids': prefs.getString('dailyLiquids') != null
+            ? json.decode(prefs.getString('dailyLiquids')!)
             : null,
         'notif': prefs.getBool('notif'),
         'vib': prefs.getBool('vib'),
@@ -641,6 +654,98 @@ class StorageService {
 
   Future<void> saveDailySnacksMap(Map<String, Map<String, List<Map<String, dynamic>>>> dailySnacks) async {
     await prefs.setString('dailySnacks', json.encode(dailySnacks));
+    await backupToFile();
+  }
+
+  // Daily water tracking - dateStr -> list of {timestamp, ml}
+  Map<String, List<Map<String, dynamic>>> loadDailyWater() {
+    final waterJson = prefs.getString('dailyWater');
+    if (waterJson == null) return {};
+
+    try {
+      final decoded = json.decode(waterJson) as Map<String, dynamic>;
+      final result = <String, List<Map<String, dynamic>>>{};
+
+      for (final entry in decoded.entries) {
+        final dateStr = entry.key;
+        final value = entry.value;
+
+        // Migration: Handle old format (int total) vs new format (list of entries)
+        if (value is int) {
+          // Old format: convert to a single entry with placeholder time
+          result[dateStr] = [{'timestamp': '12:00', 'ml': value}];
+        } else if (value is List) {
+          // New format: list of {timestamp, ml}
+          result[dateStr] = value.map((item) {
+            if (item is Map) {
+              return Map<String, dynamic>.from(item);
+            }
+            return {'timestamp': '12:00', 'ml': 0};
+          }).toList();
+        }
+      }
+      return result;
+    } catch (e) {
+      debugPrint('Error loading daily water, resetting: $e');
+      prefs.remove('dailyWater');
+      return {};
+    }
+  }
+
+  int getWaterForDate(DateTime date, Map<String, List<Map<String, dynamic>>> dailyWater) {
+    final entries = dailyWater[dateToString(date)] ?? [];
+    return entries.fold(0, (sum, entry) => sum + ((entry['ml'] as num?)?.toInt() ?? 0));
+  }
+
+  Future<void> saveDailyWater(Map<String, List<Map<String, dynamic>>> dailyWater) async {
+    await prefs.setString('dailyWater', json.encode(dailyWater));
+    await backupToFile();
+  }
+
+  // Daily liquids tracking (energy drinks, milk, etc.) - dateStr -> liquidId -> list of {timestamp, ml, macros}
+  Map<String, Map<String, List<Map<String, dynamic>>>> loadDailyLiquids() {
+    final liquidsJson = prefs.getString('dailyLiquids');
+    if (liquidsJson == null) return {};
+
+    try {
+      final decoded = json.decode(liquidsJson) as Map<String, dynamic>;
+      final result = <String, Map<String, List<Map<String, dynamic>>>>{};
+
+      for (final entry in decoded.entries) {
+        final dateStr = entry.key;
+        final liquidsMap = <String, List<Map<String, dynamic>>>{};
+
+        for (final liquidEntry in (entry.value as Map<String, dynamic>).entries) {
+          final liquidId = liquidEntry.key;
+          final value = liquidEntry.value;
+
+          if (value is List) {
+            liquidsMap[liquidId] = value.map((item) {
+              if (item is Map) {
+                return Map<String, dynamic>.from(item);
+              }
+              return {'timestamp': item.toString(), 'ml': 0};
+            }).toList();
+          }
+        }
+
+        result[dateStr] = liquidsMap;
+      }
+      return result;
+    } catch (e) {
+      debugPrint('Error loading daily liquids, resetting: $e');
+      prefs.remove('dailyLiquids');
+      return {};
+    }
+  }
+
+  Map<String, List<Map<String, dynamic>>> getLiquidsForDate(
+      DateTime date, Map<String, Map<String, List<Map<String, dynamic>>>> dailyLiquids) {
+    return dailyLiquids[dateToString(date)] ?? {};
+  }
+
+  Future<void> saveDailyLiquids(Map<String, Map<String, List<Map<String, dynamic>>>> dailyLiquids) async {
+    await prefs.setString('dailyLiquids', json.encode(dailyLiquids));
     await backupToFile();
   }
 }
