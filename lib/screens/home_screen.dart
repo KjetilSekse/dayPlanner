@@ -24,7 +24,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   bool _notifOn = true;
   bool _vibrateOn = true;
   Map<String, Recipe> _recipes = {};
@@ -41,8 +41,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, List<Map<String, dynamic>>> _dailyWater = {}; // dateStr -> list of {timestamp, ml}
   Map<String, Map<String, List<Map<String, dynamic>>>> _dailyLiquids = {}; // dateStr -> liquidId -> list of {timestamp, ml, calories, fat, carbs, protein}
   bool _loaded = false;
-  int _selectedMealCategory = 6; // 0=Breakfast, 1=Lunch, 2=Dinner, 3=Drinks, 4=Snacks, 5=Liquids, 6=Today
+  int _selectedNavIndex = 4; // 0=Recipes, 1=Drinks, 2=Snacks, 3=Liquids, 4=Today
   late PageController _pageController;
+  late TabController _recipeCategoryController; // For filtering recipes by Breakfast/Lunch/Dinner
 
   // Date-based navigation
   DateTime _currentDate = DateTime.now();
@@ -54,6 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _recipeCategoryController = TabController(length: 3, vsync: this);
     _initializeMonth(_currentDate);
     _load();
   }
@@ -126,6 +128,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _pageController.dispose();
+    _recipeCategoryController.dispose();
     super.dispose();
   }
 
@@ -500,9 +503,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  MealCategory get _currentCategory =>
-      _selectedMealCategory < 3 ? MealCategory.values[_selectedMealCategory] : MealCategory.breakfast;
-
   @override
   Widget build(BuildContext context) {
     if (!_loaded) {
@@ -511,13 +511,13 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    // Show PageView for Today tab (index 6)
-    if (_selectedMealCategory == 6) {
+    // Show PageView for Today tab (index 4)
+    if (_selectedNavIndex == 4) {
       return _buildDayPageView();
     }
 
-    // Handle Drinks tab (index 3)
-    if (_selectedMealCategory == 3) {
+    // Handle Drinks tab (index 1)
+    if (_selectedNavIndex == 1) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Drinks'),
@@ -533,8 +533,8 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    // Handle Snacks tab (index 4)
-    if (_selectedMealCategory == 4) {
+    // Handle Snacks tab (index 2)
+    if (_selectedNavIndex == 2) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Snacks'),
@@ -550,8 +550,8 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    // Handle Liquids tab (index 5)
-    if (_selectedMealCategory == 5) {
+    // Handle Liquids tab (index 3)
+    if (_selectedNavIndex == 3) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Liquids'),
@@ -567,9 +567,10 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
+    // Recipes tab (index 0)
     return Scaffold(
       appBar: AppBar(
-        title: Text('${_currentCategory.name.capitalize()} Recipes'),
+        title: const Text('Recipes'),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
@@ -577,7 +578,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: _buildCookbook(),
+      body: _buildRecipesTab(),
       bottomNavigationBar: _buildBottomNav(),
     );
   }
@@ -659,27 +660,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildBottomNav() {
     return NavigationBar(
-      selectedIndex: _selectedMealCategory,
+      selectedIndex: _selectedNavIndex,
       onDestinationSelected: (index) {
         setState(() {
-          _selectedMealCategory = index;
+          _selectedNavIndex = index;
         });
       },
       destinations: const [
         NavigationDestination(
-          icon: Icon(Icons.free_breakfast_outlined),
-          selectedIcon: Icon(Icons.free_breakfast),
-          label: 'Breakfast',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.lunch_dining_outlined),
-          selectedIcon: Icon(Icons.lunch_dining),
-          label: 'Lunch',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.dinner_dining_outlined),
-          selectedIcon: Icon(Icons.dinner_dining),
-          label: 'Dinner',
+          icon: Icon(Icons.menu_book_outlined),
+          selectedIcon: Icon(Icons.menu_book),
+          label: 'Recipes',
         ),
         NavigationDestination(
           icon: Icon(Icons.local_bar_outlined),
@@ -1252,20 +1243,39 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildCookbook() {
-    final categoryRecipes = _categoryRecipes[_currentCategory] ?? {};
+  Widget _buildRecipesTab() {
+    return Column(
+      children: [
+        TabBar(
+          controller: _recipeCategoryController,
+          tabs: const [
+            Tab(text: 'Breakfast'),
+            Tab(text: 'Lunch'),
+            Tab(text: 'Dinner'),
+          ],
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: _recipeCategoryController,
+            children: [
+              _buildCategoryRecipeList(MealCategory.breakfast),
+              _buildCategoryRecipeList(MealCategory.lunch),
+              _buildCategoryRecipeList(MealCategory.dinner),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategoryRecipeList(MealCategory category) {
+    final categoryRecipes = _categoryRecipes[category] ?? {};
     final today = DateTime.now();
+    final mealIdx = category.index; // breakfast=0, lunch=1, dinner=2
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(
-          '${_currentCategory.name.capitalize()} Recipes',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 8),
         if (categoryRecipes.isEmpty)
           const Card(
             child: Padding(
@@ -1282,13 +1292,13 @@ class _HomeScreenState extends State<HomeScreen> {
               child: RecipeCard(
                 recipe: recipe,
                 mealId: recipeId,
-                time: _getDefaultTimeForCategory(_currentCategory),
+                time: _getDefaultTimeForCategory(category),
                 completed: _completed.contains(recipeId),
                 checkedIngredients: _checkedIngredients,
                 onCompletedChanged: (v) => _toggleCompleted(recipeId, v),
                 onIngredientChanged: _toggleIngredient,
                 onTimeEdit: () {},
-                onReplace: () => _selectRecipeForMeal(today, _selectedMealCategory, entry.key),
+                onReplace: () => _selectRecipeForMeal(today, mealIdx, entry.key),
                 replaceButtonText: 'Set for today',
                 showReplaceButtonOutside: true,
               ),
@@ -2129,9 +2139,11 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     await _storage.saveMealReplacements(_mealReplacements);
     if (mounted) {
+      final mealNames = ['Breakfast', 'Lunch', 'Dinner'];
+      final mealName = mealIdx < mealNames.length ? mealNames[mealIdx] : 'Meal';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Recipe set for today\'s ${_currentCategory.name}'),
+          content: Text('Recipe set for today\'s $mealName'),
           duration: const Duration(seconds: 2),
         ),
       );
@@ -2377,7 +2389,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               return ExpansionTile(
                 leading: const Icon(Icons.cookie),
-                title: Text(snack.name),
+                title: Text('${snack.name} (${snack.servingGrams.round()}g/serving)'),
                 subtitle: Text('$snackTypeCals cal • ${snackTypeProtein.toStringAsFixed(1)}g protein'),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -2415,11 +2427,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   final timestamp = data['timestamp'] as String? ?? '';
                   final scaledCals = (double.parse(snack.perServing.cals) * portion).round();
                   final scaledProtein = (double.parse(snack.perServing.protein) * portion).toStringAsFixed(1);
+                  final scaledGrams = (snack.servingGrams * portion).round();
 
                   return ListTile(
                     leading: const Icon(Icons.access_time, size: 20),
-                    title: Text('Entry ${index + 1} - ${portion}x'),
-                    subtitle: Text('$scaledCals cal • ${scaledProtein}g protein • Time: $timestamp'),
+                    title: Text('${scaledGrams}g (${portion}x serving)'),
+                    subtitle: Text('$scaledCals cal • ${scaledProtein}g protein • $timestamp'),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -2566,7 +2579,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   leading: const Icon(Icons.cookie),
                   title: Text(snack.name),
                   subtitle: Text(
-                    '${snack.perServing.cals} cal per serving',
+                    '${snack.perServing.cals} cal per ${snack.servingGrams.round()}g serving',
                   ),
                   trailing: IconButton(
                     icon: const Icon(Icons.add_circle_outline),
