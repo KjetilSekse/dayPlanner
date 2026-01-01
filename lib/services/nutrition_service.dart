@@ -1,3 +1,4 @@
+import '../models/bread_meal.dart';
 import '../models/recipe.dart';
 import 'storage_service.dart';
 
@@ -57,6 +58,12 @@ class NutritionService {
 
   /// Find recipe by ID across all recipe sources
   Recipe? findRecipe(String recipeId) {
+    // Check if this is a bread meal ID
+    if (BreadMeal.isBreadMealId(recipeId)) {
+      final breadMeal = BreadMeal.fromEncodedId(recipeId);
+      return breadMeal?.toRecipe();
+    }
+
     if (recipes.containsKey(recipeId)) {
       return recipes[recipeId];
     }

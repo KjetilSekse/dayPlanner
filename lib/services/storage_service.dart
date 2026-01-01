@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
+import '../config/ciders.dart';
 import '../models/menu.dart';
 import '../models/recipe.dart';
 import '../models/snack.dart';
@@ -269,7 +270,9 @@ class StorageService {
         debugPrint('Failed to load drink $id: $e');
       }
     }
-    debugPrint('Total drinks loaded: ${drinks.length}');
+    // Add ciders from config
+    drinks.addAll(getCiderRecipes());
+    debugPrint('Total drinks loaded: ${drinks.length} (including ${allCiders.length} ciders)');
     return drinks;
   }
 

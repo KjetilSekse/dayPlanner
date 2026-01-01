@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../config/energy_drinks.dart';
+import '../config/liquids.dart';
+import '../models/bread_meal.dart';
 import '../models/meal.dart';
 import '../models/menu.dart';
 import '../models/recipe.dart';
@@ -358,6 +359,13 @@ class _HomeScreenState extends State<HomeScreen> {
   Recipe? _getReplacementRecipe(DateTime date, int mealIdx) {
     final recipeId = _storage.getMealReplacementForDate(date, mealIdx, _mealReplacements);
     if (recipeId == null) return null;
+
+    // Check if this is a bread meal ID
+    if (BreadMeal.isBreadMealId(recipeId)) {
+      final breadMeal = BreadMeal.fromEncodedId(recipeId);
+      return breadMeal?.toRecipe();
+    }
+
     return _nutritionService.findRecipe(recipeId);
   }
 
@@ -1820,13 +1828,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
                         onTap: () {
                           Navigator.pop(context);
-                          if (isMonster) {
-                            // Monster drinks always add full amount
-                            _addLiquid(date, liquid);
-                          } else {
-                            // Show amount picker for other liquids
-                            _showLiquidAmountPicker(context, date, liquid);
-                          }
+                          // Add with default amount (consistent with Liquids tab)
+                          _addLiquid(date, liquid);
+                        },
+                        onLongPress: () {
+                          Navigator.pop(context);
+                          // Long press for custom amount
+                          _showLiquidAmountPicker(context, date, liquid);
                         },
                       );
                     }).toList(),
@@ -1852,6 +1860,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Calculate calories per ml for scaling
     final calsPerMl = macros != null ? macros.calories / defaultMl : 0.0;
+    final defaultCals = macros?.calories ?? 0;
 
     showDialog(
       context: context,
@@ -1871,10 +1880,39 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
+            // Default button - prominent at top
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  _addLiquid(date, liquid);
+                },
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Default (${defaultMl}ml)', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    if (defaultCals > 0)
+                      Text(
+                        '$defaultCals cal',
+                        style: const TextStyle(fontSize: 10),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Divider(),
+            const SizedBox(height: 8),
+            // Quick select buttons
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: [100, 150, 200, 250, 300, 400, 500].map((ml) {
+              children: [100, 150, 200, 250, 300, 400, 500].where((ml) => ml != defaultMl).map((ml) {
                 final scaledCals = (calsPerMl * ml).round();
                 return ElevatedButton(
                   onPressed: () {
@@ -1895,6 +1933,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               }).toList(),
             ),
+            const SizedBox(height: 12),
+            // Manual input button
+            OutlinedButton.icon(
+              icon: const Icon(Icons.edit, size: 16),
+              label: const Text('Custom amount'),
+              onPressed: () {
+                Navigator.pop(context);
+                _showManualLiquidInput(context, date, liquid);
+              },
+            ),
           ],
         ),
         actions: [
@@ -1904,6 +1952,72 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showManualLiquidInput(BuildContext context, DateTime date, Liquid liquid) {
+    final controller = TextEditingController(text: liquid.ml.toString());
+    final macros = liquid.macros;
+    final calsPerMl = macros != null ? macros.calories / liquid.ml : 0.0;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            final ml = int.tryParse(controller.text) ?? 0;
+            final scaledCals = (calsPerMl * ml).round();
+
+            return AlertDialog(
+              title: Text('Custom amount'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(liquid.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.number,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Amount (ml)',
+                      border: OutlineInputBorder(),
+                      suffixText: 'ml',
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  if (macros != null && ml > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Text(
+                        '$scaledCals calories',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: ml > 0
+                      ? () {
+                          Navigator.pop(context);
+                          _addLiquidWithAmount(date, liquid, ml);
+                        }
+                      : null,
+                  child: const Text('Add'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 

@@ -59,6 +59,7 @@ const List<LiquidCategory> liquidCategories = [
       // Apple juice: 43 kcal, 0g fat, 10.5g carbs, 0g protein per 100ml
       // 250ml: 108 kcal, 0g fat, 26.3g carbs, 0g protein
       Liquid('Apple Juice', 250, LiquidMacros(calories: 108, fat: 0, carbs: 26.3, protein: 0)),
+      Liquid('Tomato Juice', 100, LiquidMacros(calories: 19, fat: 0, carbs: 3.5, protein: 0.8)),
     ],
   ),
   // Monster Ultra (Zero)
@@ -68,6 +69,7 @@ const List<LiquidCategory> liquidCategories = [
     items: [
       Liquid('Ultra White', 500),
       Liquid('Ultra Paradise', 500),
+      Liquid('Lando Norris', 500),
       Liquid('Ultra Watermelon', 500),
       Liquid('Ultra Black', 500),
       Liquid('Ultra Rosá', 500),
@@ -83,31 +85,26 @@ const List<LiquidCategory> liquidCategories = [
     icon: 'M',
     items: [
       Liquid('Monster Energy (Green)', 500, LiquidMacros.cals(210)),
+      Liquid('Monster Rio Punch', 500, LiquidMacros.cals(150)),
       Liquid('Monster Mango Loco', 500, LiquidMacros.cals(210)),
       Liquid('Monster Pipeline Punch', 500, LiquidMacros.cals(230)),
       Liquid('Monster Pacific Punch', 500, LiquidMacros.cals(230)),
     ],
   ),
-  // Red Bull
+  // Protein Heavy Drinks
   LiquidCategory(
-    name: 'Red Bull',
-    icon: 'R',
+    name: 'Protein Heavy Drinks',
+    icon: '💪',
     items: [
-      Liquid('Red Bull Original', 250, LiquidMacros.cals(112)),
-      Liquid('Red Bull Sugar Free', 250),
-      Liquid('Red Bull Zero', 250),
-      Liquid('Red Bull Tropical', 250, LiquidMacros.cals(112)),
-      Liquid('Red Bull Watermelon', 250, LiquidMacros.cals(112)),
-    ],
-  ),
-  // Other energy drinks
-  LiquidCategory(
-    name: 'Other Energy',
-    icon: '⚡',
-    items: [
-      Liquid('Celsius', 355),
-      Liquid('Nocco', 330),
-      Liquid('Battery', 500, LiquidMacros.cals(225)),
+      // Protein Shake: 400ml milk + banana + casein
+      // ~550ml total: 410 kcal, 5g fat, 45g carbs, 48g protein
+      Liquid('Protein Shake', 550, LiquidMacros(calories: 410, fat: 5, carbs: 45, protein: 48)),
+      // Yt Kakao: 66 kcal, 0.9g fat, 8.7g carbs, 5.7g protein per 100ml
+      // 330ml: 218 kcal, 3g fat, 28.7g carbs, 18.8g protein
+      Liquid('Yt Kakao', 330, LiquidMacros(calories: 218, fat: 3, carbs: 28.7, protein: 18.8)),
+      // Yt Banana Strawberry: 65 kcal, 0.8g fat, 8.7g carbs, 5.8g protein per 100ml
+      // 330ml: 215 kcal, 2.6g fat, 28.7g carbs, 19.1g protein
+      Liquid('Yt Banana Strawberry', 330, LiquidMacros(calories: 215, fat: 2.6, carbs: 28.7, protein: 19.1)),
     ],
   ),
 ];
