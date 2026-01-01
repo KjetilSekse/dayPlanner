@@ -18,7 +18,6 @@ dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/menus/
     - assets/recipes/
     - assets/drinks/
     - assets/snacks/

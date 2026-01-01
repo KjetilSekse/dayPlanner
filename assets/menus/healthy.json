@@ -1,8 +1,0 @@
-{
-  "name": "Healthy",
-  "meals": [
-    {"time": "08:00", "name": "Oatmeal & Berries", "ingredients": "50g oats, 200ml milk, 100g berries, 1 tbsp honey"},
-    {"time": "13:00", "name": "Chicken Salad", "ingredients": "150g chicken, lettuce, tomato, cucumber, olive oil"},
-    {"time": "19:00", "name": "Salmon & Veggies", "ingredients": "200g salmon, broccoli, sweet potato"}
-  ]
-}

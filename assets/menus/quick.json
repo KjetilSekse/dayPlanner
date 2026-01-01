@@ -1,8 +1,0 @@
-{
-  "name": "Quick Meals",
-  "meals": [
-    {"time": "08:00", "name": "Toast & Eggs", "ingredients": "2 slices bread, 2 eggs, butter"},
-    {"time": "13:00", "name": "Ham Sandwich", "ingredients": "bread, ham, cheese, lettuce, mayo"},
-    {"time": "19:00", "name": "Pasta & Jar Sauce", "ingredients": "pasta, marinara sauce, parmesan"}
-  ]
-}

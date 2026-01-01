@@ -11,6 +11,7 @@ class RecipeCard extends StatelessWidget {
   final void Function(String ingredientId, bool? value) onIngredientChanged;
   final VoidCallback onTimeEdit;
   final VoidCallback onReplace;
+  final VoidCallback? onClear;
   final String replaceButtonText;
   final bool showReplaceButtonOutside;
   final double portion;
@@ -27,6 +28,7 @@ class RecipeCard extends StatelessWidget {
     required this.onIngredientChanged,
     required this.onTimeEdit,
     required this.onReplace,
+    this.onClear,
     this.replaceButtonText = 'Replace',
     this.showReplaceButtonOutside = false,
     this.portion = 1.0,
@@ -40,13 +42,22 @@ class RecipeCard extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        leading: Transform.scale(
-          scale: 1.3,
-          child: Checkbox(
-            value: completed,
-            onChanged: onCompletedChanged,
-          ),
-        ),
+        leading: onClear != null
+            ? IconButton(
+                icon: Icon(
+                  Icons.close,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                onPressed: onClear,
+                tooltip: 'Clear meal',
+              )
+            : Transform.scale(
+                scale: 1.3,
+                child: Checkbox(
+                  value: completed,
+                  onChanged: onCompletedChanged,
+                ),
+              ),
         title: Text(
           recipe.name,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),

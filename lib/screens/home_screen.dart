@@ -2,15 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../config/liquids.dart';
 import '../models/bread_meal.dart';
-import '../models/meal.dart';
-import '../models/menu.dart';
 import '../models/recipe.dart';
 import '../models/snack.dart';
 import '../services/notification_service.dart';
 import '../services/nutrition_service.dart';
 import '../services/storage_service.dart';
 import '../widgets/calendar_dialog.dart';
-import '../widgets/meal_card.dart';
 import '../widgets/recipe_card.dart';
 import '../widgets/recipe_picker.dart';
 
@@ -30,12 +27,10 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   bool _notifOn = true;
   bool _vibrateOn = true;
-  Map<String, Menu> _menus = {};
   Map<String, Recipe> _recipes = {};
   Map<MealCategory, Map<String, Recipe>> _categoryRecipes = {};
   Map<String, Recipe> _drinks = {};
   Map<String, Snack> _snacks = {};
-  Map<String, String> _selectedMenus = {}; // dateStr -> menuId
   Map<String, String> _customTimes = {}; // dateStr-mealIdx -> time
   Map<String, String> _mealReplacements = {}; // dateStr-mealIdx or dayIdx-mealIdx -> recipeId
   Map<String, double> _mealPortions = {}; // dateStr-mealIdx -> portion multiplier
@@ -136,7 +131,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _load() async {
     try {
-      final menus = await _storage.loadMenus();
       final recipes = await _storage.loadRecipes();
       final categoryRecipes = await _storage.loadAllCategoryRecipes();
       final drinks = await _storage.loadDrinks();
@@ -146,12 +140,10 @@ class _HomeScreenState extends State<HomeScreen> {
       print('Snacks loaded in home screen: ${snacks.length}');
 
       setState(() {
-        _menus = menus;
         _recipes = recipes;
         _categoryRecipes = categoryRecipes;
         _drinks = drinks;
         _snacks = snacks;
-        _selectedMenus = _storage.loadSelectedMenusMap();
         _customTimes = _storage.loadCustomTimes();
         _mealReplacements = _storage.loadMealReplacements();
         _mealPortions = _storage.loadMealPortions();
@@ -177,15 +169,25 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  List<Meal> _getMealsForDate(DateTime date) {
-    final menuId = _storage.getMenuForDate(date, _selectedMenus);
-    final menu = _menus[menuId];
-    if (menu == null) return [];
+  // Get meals info for notifications - now based on fixed meal slots
+  List<({String name, String time})> _getMealTimesForDate(DateTime date) {
+    const mealSlots = [
+      (idx: 0, name: 'Breakfast', defaultTime: '08:00'),
+      (idx: 1, name: 'Lunch', defaultTime: '12:00'),
+      (idx: 2, name: 'Dinner', defaultTime: '18:00'),
+    ];
 
-    return menu.meals.asMap().entries.map((e) {
-      final customTime = _storage.getCustomTimeForDate(date, e.key, _customTimes);
-      return customTime != null ? e.value.copyWith(time: customTime) : e.value;
-    }).toList();
+    final result = <({String name, String time})>[];
+    for (final slot in mealSlots) {
+      final recipeId = _storage.getMealReplacementForDate(date, slot.idx, _mealReplacements);
+      if (recipeId != null) {
+        // Only include meals that have been assigned
+        final customTime = _storage.getCustomTimeForDate(date, slot.idx, _customTimes);
+        final time = customTime ?? slot.defaultTime;
+        result.add((name: slot.name, time: time));
+      }
+    }
+    return result;
   }
 
   // Get NutritionService instance for current state
@@ -209,11 +211,11 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    // Only schedule today's meals
+    // Only schedule today's assigned meals
     final today = DateTime.now();
-    final todayMeals = _getMealsForDate(today);
-    await NotificationService.scheduleTodaysMeals(
-      meals: todayMeals,
+    final mealTimes = _getMealTimesForDate(today);
+    await NotificationService.scheduleTodaysMealTimes(
+      mealTimes: mealTimes,
       vibrate: _vibrateOn,
     );
   }
@@ -366,6 +368,25 @@ class _HomeScreenState extends State<HomeScreen> {
       return breadMeal?.toRecipe();
     }
 
+    // Check if this is a snack ID (format: snack:id)
+    if (recipeId.startsWith('snack:')) {
+      final snackId = recipeId.substring(6);
+      final snack = _snacks[snackId];
+      if (snack != null) {
+        // Convert snack to recipe-like format for display
+        return Recipe(
+          id: recipeId,
+          name: snack.name,
+          ingredients: snack.ingredients ?? [],
+          instructions: snack.instructions ?? [],
+          per100g: snack.per100g,
+          total: snack.perServing,
+          servingGrams: snack.servingGrams,
+        );
+      }
+      return null;
+    }
+
     return _nutritionService.findRecipe(recipeId);
   }
 
@@ -373,34 +394,21 @@ class _HomeScreenState extends State<HomeScreen> {
     return _storage.getPortionForDate(date, mealIdx, _mealPortions);
   }
 
-  Map<String, Recipe> _getAllRecipesForCategory(MealCategory category) {
-    final allRecipes = <String, Recipe>{};
-    // Add category-specific recipes
-    final categoryMap = _categoryRecipes[category];
-    if (categoryMap != null) {
-      allRecipes.addAll(categoryMap);
-    }
-    // Only add general recipes for dinner category
-    if (category == MealCategory.dinner) {
-      allRecipes.addAll(_recipes);
-    }
-    return allRecipes;
-  }
-
   void _showRecipePicker(BuildContext context, DateTime date, int mealIdx, String mealName) {
     final dateStr = StorageService.dateToString(date);
     final key = '$dateStr-$mealIdx';
     // Determine which category this meal belongs to (0=breakfast, 1=lunch, 2=dinner)
     final category = MealCategory.values[mealIdx.clamp(0, 2)];
-    final availableRecipes = _getAllRecipesForCategory(category);
 
-    // Get current recipe ID (check date-specific first, then weekday default)
+    // Get current recipe ID
     final currentRecipeId = _storage.getMealReplacementForDate(date, mealIdx, _mealReplacements);
 
     RecipePicker.show(
       context: context,
       mealName: mealName,
-      recipes: availableRecipes,
+      defaultCategory: category,
+      categoryRecipes: _categoryRecipes,
+      snacks: _snacks,
       currentRecipeId: currentRecipeId,
       onRecipeSelected: (recipeId) async {
         setState(() {
@@ -413,6 +421,18 @@ class _HomeScreenState extends State<HomeScreen> {
         await _storage.saveMealReplacements(_mealReplacements);
       },
     );
+  }
+
+  void _clearMeal(DateTime date, int mealIdx) async {
+    final dateStr = StorageService.dateToString(date);
+    final key = '$dateStr-$mealIdx';
+    setState(() {
+      _mealReplacements.remove(key);
+      // Also clear the portion if set
+      _mealPortions.remove(key);
+    });
+    await _storage.saveMealReplacements(_mealReplacements);
+    await _storage.saveMealPortions(_mealPortions);
   }
 
   void _showPortionPicker(BuildContext context, DateTime date, int mealIdx) {
@@ -685,25 +705,75 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  String _getMealLabel(int mealIdx) {
-    switch (mealIdx) {
-      case 0:
-        return 'Breakfast';
-      case 1:
-        return 'Lunch';
-      case 2:
-        return 'Dinner';
-      default:
-        return '';
-    }
+  Widget _buildEmptyMealSlot(BuildContext context, DateTime date, int mealIdx, String mealName, String time) {
+    return Card(
+      child: InkWell(
+        onTap: () => _showRecipePicker(context, date, mealIdx, mealName),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.add,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Add $mealName',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      time,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildTodaysMeals(DateTime date) {
-    final meals = _getMealsForDate(date);
     final dateStr = StorageService.dateToString(date);
     final dayDrinks = _dailyDrinks[dateStr] ?? {};
     final daySnacks = _dailySnacks[dateStr] ?? {};
     final dayLiquids = _dailyLiquids[dateStr] ?? {};
+
+    // Fixed meal slots: Breakfast (0), Lunch (1), Dinner (2)
+    const mealSlots = [
+      (idx: 0, name: 'Breakfast', defaultTime: '08:00'),
+      (idx: 1, name: 'Lunch', defaultTime: '12:00'),
+      (idx: 2, name: 'Dinner', defaultTime: '18:00'),
+    ];
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -711,13 +781,14 @@ class _HomeScreenState extends State<HomeScreen> {
         // Daily calories summary
         _buildDailySummary(date),
         const SizedBox(height: 8),
-        // Regular meals
-        ...meals.asMap().entries.map((entry) {
-          final mealIdx = entry.key;
-          final meal = entry.value;
+        // Meal slots
+        ...mealSlots.map((slot) {
+          final mealIdx = slot.idx;
           final mealId = '$dateStr-$mealIdx';
           final replacementRecipe = _getReplacementRecipe(date, mealIdx);
           final portion = _getPortionForMeal(date, mealIdx);
+          final customTime = _storage.getCustomTimeForDate(date, mealIdx, _customTimes);
+          final time = customTime ?? slot.defaultTime;
 
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
@@ -727,32 +798,25 @@ class _HomeScreenState extends State<HomeScreen> {
                   RecipeCard(
                     recipe: replacementRecipe,
                     mealId: mealId,
-                    time: meal.time,
+                    time: time,
                     completed: _completed.contains(mealId),
                     checkedIngredients: _checkedIngredients,
                     onCompletedChanged: (v) => _toggleCompleted(mealId, v),
                     onIngredientChanged: _toggleIngredient,
-                    onTimeEdit: () => _editMealTime(context, date, mealIdx, meal.time),
-                    onReplace: () => _showRecipePicker(context, date, mealIdx, meal.name),
+                    onTimeEdit: () => _editMealTime(context, date, mealIdx, time),
+                    onReplace: () => _showRecipePicker(context, date, mealIdx, slot.name),
+                    onClear: () => _clearMeal(date, mealIdx),
                     portion: portion,
                     onPortionTap: () => _showPortionPicker(context, date, mealIdx),
                   )
                 else
-                  MealCard(
-                    meal: meal,
-                    mealId: mealId,
-                    completed: _completed.contains(mealId),
-                    checkedIngredients: _checkedIngredients,
-                    onCompletedChanged: (v) => _toggleCompleted(mealId, v),
-                    onIngredientChanged: _toggleIngredient,
-                    onTimeEdit: () => _editMealTime(context, date, mealIdx, meal.time),
-                    onReplace: () => _showRecipePicker(context, date, mealIdx, meal.name),
-                  ),
+                  // Empty meal slot - show "Add" card
+                  _buildEmptyMealSlot(context, date, mealIdx, slot.name, time),
                 Positioned(
                   top: 8,
                   right: 16,
                   child: Text(
-                    _getMealLabel(mealIdx),
+                    slot.name,
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
@@ -1797,8 +1861,6 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: liquidCategories.map((category) {
-                // Check if this is a Monster category (always 500ml)
-                final isMonster = category.name.toLowerCase().contains('monster');
                 return Theme(
                   data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                   child: ExpansionTile(

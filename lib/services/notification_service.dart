@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-import '../models/meal.dart';
 
 class NotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
@@ -155,18 +154,18 @@ class NotificationService {
     return await _plugin.pendingNotificationRequests();
   }
 
-  // Schedule only today's meals
-  static Future<void> scheduleTodaysMeals({
-    required List<Meal> meals,
+  // Schedule only today's meals (using meal times)
+  static Future<void> scheduleTodaysMealTimes({
+    required List<({String name, String time})> mealTimes,
     required bool vibrate,
   }) async {
     await cancelAll();
 
     final now = tz.TZDateTime.now(tz.local);
-    debugPrint('Scheduling ${meals.length} meals for today (${now.weekday})');
+    debugPrint('Scheduling ${mealTimes.length} meals for today (${now.weekday})');
 
     int id = 0;
-    for (final meal in meals) {
+    for (final meal in mealTimes) {
       final timeParts = meal.time.split(':');
       final hour = int.parse(timeParts[0]);
       final minute = int.parse(timeParts[1]);

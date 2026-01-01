@@ -77,15 +77,10 @@ class NutritionService {
 
   /// Get recipe for a specific date and meal
   Recipe? getRecipeForMeal(DateTime date, int mealIdx) {
-    // Check date-specific replacement first
+    // Only check date-specific replacement (no weekday defaults)
     final dateKey = '${StorageService.dateToString(date)}-$mealIdx';
     if (mealReplacements.containsKey(dateKey)) {
       return findRecipe(mealReplacements[dateKey]!);
-    }
-    // Fall back to weekday default
-    final weekdayKey = '${StorageService.getWeekdayIdx(date)}-$mealIdx';
-    if (mealReplacements.containsKey(weekdayKey)) {
-      return findRecipe(mealReplacements[weekdayKey]!);
     }
     return null;
   }

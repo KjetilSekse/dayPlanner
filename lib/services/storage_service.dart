@@ -327,60 +327,42 @@ class StorageService {
     return allRecipes;
   }
 
-  // Default dinner replacements (dayIdx-mealIdx -> recipeId)
-  // Days: 0=Monday, 1=Tuesday, 2=Wednesday, 3=Thursday, 4=Friday, 5=Saturday, 6=Sunday
+  // No default meal replacements - days start blank
+  // Meals are assigned per date: YYYY-MM-DD-mealIdx -> recipeId
   // Meals: 0=Breakfast, 1=Lunch, 2=Dinner
-  static const Map<String, String> _defaultMealReplacements = {
-    // Breakfast (ProteinShake weekdays, Kesam weekends)
-    '0-0': 'ProteinShake',       // Monday breakfast
-    '1-0': 'ProteinShake',       // Tuesday breakfast
-    '2-0': 'ProteinShake',       // Wednesday breakfast
-    '3-0': 'ProteinShake',       // Thursday breakfast
-    '4-0': 'ProteinShake',       // Friday breakfast
-    '5-0': 'HearthyKesam',       // Saturday breakfast
-    '6-0': 'HearthyKesam',       // Sunday breakfast
-    // Lunch (Pancakes every day)
-    '0-1': 'ProteinPancakes',    // Monday lunch
-    '1-1': 'ProteinPancakes',    // Tuesday lunch
-    '2-1': 'ProteinPancakes',    // Wednesday lunch
-    '3-1': 'ProteinPancakes',    // Thursday lunch
-    '4-1': 'ProteinPancakes',    // Friday lunch
-    '5-1': 'ProteinPancakes',    // Saturday lunch
-    '6-1': 'ProteinPancakes',    // Sunday lunch
-    // Dinner
-    '0-2': 'Goulash',                        // Monday dinner
-    '1-2': 'TacoChicken',                  // Tuesday dinner
-    '2-2': 'ButterChicken',                  // Wednesday dinner
-    '3-2': 'BarbequeChickenWithTortellini',  // Thursday dinner
-    '4-2': 'Lasagna',                        // Friday dinner
-    '5-2': 'MarinatedPorkWithPotatos',       // Saturday dinner
-    '6-2': 'PastaParmesan',                  // Sunday dinner
-  };
 
-  // Meal replacements - now supports both date-based (YYYY-MM-DD-mealIdx) and weekday-based (dayIdx-mealIdx)
+  // Meal replacements - date-based only (YYYY-MM-DD-mealIdx -> recipeId)
   Map<String, String> loadMealReplacements() {
     final replacementsJson = prefs.getString('mealReplacements');
     if (replacementsJson == null) {
-      return Map.from(_defaultMealReplacements);
+      return {};
     }
     final decoded = json.decode(replacementsJson) as Map<String, dynamic>;
-    // Merge with defaults so any new meals have default values
-    final result = Map<String, String>.from(_defaultMealReplacements);
-    for (final entry in decoded.entries) {
-      result[entry.key] = entry.value as String;
+    final result = decoded.map((k, v) => MapEntry(k, v as String));
+
+    // Clean up old weekday-based keys (0-0, 0-1, 0-2, 1-0, etc.)
+    // Date-based keys look like: 2025-01-01-0
+    final keysToRemove = result.keys.where((key) {
+      // Weekday keys are short like "0-0", "1-2", etc.
+      // Date keys are longer like "2025-01-01-0"
+      return key.length < 6;
+    }).toList();
+
+    if (keysToRemove.isNotEmpty) {
+      for (final key in keysToRemove) {
+        result.remove(key);
+      }
+      // Save the cleaned up data
+      prefs.setString('mealReplacements', json.encode(result));
     }
+
     return result;
   }
 
-  // Get meal replacement for a specific date (checks date-specific first, then weekday default)
+  // Get meal replacement for a specific date (returns null if not assigned)
   String? getMealReplacementForDate(DateTime date, int mealIdx, Map<String, String> replacements) {
     final dateKey = '${dateToString(date)}-$mealIdx';
-    if (replacements.containsKey(dateKey)) {
-      return replacements[dateKey];
-    }
-    // Fall back to weekday default
-    final weekdayKey = '${getWeekdayIdx(date)}-$mealIdx';
-    return replacements[weekdayKey];
+    return replacements[dateKey];
   }
 
   Future<void> saveMealReplacements(Map<String, String> replacements) async {

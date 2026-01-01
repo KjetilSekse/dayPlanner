@@ -1,8 +1,0 @@
-{
-  "name": "Vegetarian",
-  "meals": [
-    {"time": "08:00", "name": "Avocado Toast", "ingredients": "sourdough bread, avocado, cherry tomatoes, everything seasoning"},
-    {"time": "13:00", "name": "Falafel Wrap", "ingredients": "pita, falafel, hummus, tahini, pickled vegetables"},
-    {"time": "19:00", "name": "Vegetable Curry", "ingredients": "chickpeas, coconut milk, spinach, rice, naan"}
-  ]
-}
