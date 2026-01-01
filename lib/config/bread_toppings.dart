@@ -73,6 +73,18 @@ class Topping {
   BreadMacros macrosForGrams(double grams) => per100g.scaleToGrams(grams);
 }
 
+class ToppingCategory {
+  final String name;
+  final String icon;
+  final List<Topping> items;
+
+  const ToppingCategory({
+    required this.name,
+    required this.icon,
+    required this.items,
+  });
+}
+
 /// Preset combination for quick selection
 class BreadPreset {
   final String id;
@@ -118,42 +130,100 @@ const List<Bread> breads = [
   ),
 ];
 
-// ============== TOPPINGS ==============
+// ============== TOPPING CATEGORIES ==============
 
-const List<Topping> toppings = [
-  // Strandaskinke: 239 kcal, 14g fat, 0g carbs, 28g protein per 100g
-  // Default 15g per slice
-  Topping(
-    id: 'strandaskinke',
-    name: 'Strandaskinke',
-    defaultGrams: 15,
-    per100g: BreadMacros(calories: 239, fat: 14, carbs: 0, protein: 28),
+const List<ToppingCategory> toppingCategories = [
+  // Meats
+  ToppingCategory(
+    name: 'Meats',
+    icon: '🥩',
+    items: [
+      // Strandaskinke: 239 kcal, 14g fat, 0g carbs, 28g protein per 100g
+      Topping(
+        id: 'strandaskinke',
+        name: 'Strandaskinke',
+        defaultGrams: 15,
+        per100g: BreadMacros(calories: 239, fat: 14, carbs: 0, protein: 28),
+      ),
+      // Smoked Salmon: 234 kcal, 17g fat, 0.8g carbs, 20g protein per 100g
+      Topping(
+        id: 'smoked_salmon',
+        name: 'Smoked Salmon',
+        defaultGrams: 20,
+        per100g: BreadMacros(calories: 234, fat: 17, carbs: 0.8, protein: 20),
+      ),
+      // Roastbeef: 104 kcal, 1.5g fat, 1.6g carbs, 21g protein per 100g
+      Topping(
+        id: 'roastbeef',
+        name: 'Roastbeef',
+        defaultGrams: 15,
+        per100g: BreadMacros(calories: 104, fat: 1.5, carbs: 1.6, protein: 21),
+      ),
+      // Dried Lamb Thigh (Fenalår): 229 kcal, 13g fat, 0g carbs, 28g protein per 100g
+      Topping(
+        id: 'dried_lamb_thigh',
+        name: 'Dried Lamb Thigh',
+        defaultGrams: 15,
+        per100g: BreadMacros(calories: 229, fat: 13, carbs: 0, protein: 28),
+      ),
+    ],
   ),
-  // Potato Salad (Rema 1000): 237 kcal, 21.7g fat, 9.6g carbs, 1g protein per 100g
-  // Default 45g per slice
-  Topping(
-    id: 'potato_salad',
-    name: 'Potato Salad (Rema)',
-    defaultGrams: 45,
-    per100g: BreadMacros(calories: 237, fat: 21.7, carbs: 9.6, protein: 1),
+  // Sauces & Spreads
+  ToppingCategory(
+    name: 'Sauces & Spreads',
+    icon: '🥫',
+    items: [
+      // Sriracha: ~93 kcal, 0g fat, 20g carbs, 1g protein per 100g
+      Topping(
+        id: 'sriracha',
+        name: 'Sriracha',
+        defaultGrams: 15,
+        per100g: BreadMacros(calories: 93, fat: 0, carbs: 20, protein: 1),
+      ),
+      // Potato Salad (Rema 1000): 237 kcal, 21.7g fat, 9.6g carbs, 1g protein per 100g
+      Topping(
+        id: 'potato_salad',
+        name: 'Potato Salad (Rema)',
+        defaultGrams: 45,
+        per100g: BreadMacros(calories: 237, fat: 21.7, carbs: 9.6, protein: 1),
+      ),
+    ],
   ),
-  // Sriracha: ~93 kcal, 0g fat, 20g carbs, 1g protein per 100g
-  // Default 15g per slice
-  Topping(
-    id: 'sriracha',
-    name: 'Sriracha',
-    defaultGrams: 15,
-    per100g: BreadMacros(calories: 93, fat: 0, carbs: 20, protein: 1),
-  ),
-  // Smoked Salmon: 234 kcal, 17g fat, 0.8g carbs, 20g protein per 100g
-  // Default 20g per slice
-  Topping(
-    id: 'smoked_salmon',
-    name: 'Smoked Salmon',
-    defaultGrams: 20,
-    per100g: BreadMacros(calories: 234, fat: 17, carbs: 0.8, protein: 20),
+  // Other
+  ToppingCategory(
+    name: 'Other',
+    icon: '🍳',
+    items: [
+      // Scrambled Eggs Lean: 1 egg (60g) + 10g lettmelk = 70g total
+      // Per 100g: 133 kcal, 9.3g fat, 1g carbs, 11.7g protein
+      Topping(
+        id: 'scrambled_eggs_lean',
+        name: 'Scrambled Eggs (Lean)',
+        defaultGrams: 70,
+        per100g: BreadMacros(calories: 133, fat: 9.3, carbs: 1, protein: 11.7),
+      ),
+      // Scrambled Eggs Gourmet: 1 egg (60g) + 15g cream + 3.5g butter = 78.5g total
+      // Per 100g: 214 kcal, 19g fat, 0.8g carbs, 10.3g protein
+      Topping(
+        id: 'scrambled_eggs_gourmet',
+        name: 'Scrambled Eggs (Gourmet)',
+        defaultGrams: 79,
+        per100g: BreadMacros(calories: 214, fat: 19, carbs: 0.8, protein: 10.3),
+      ),
+      // Avocado: 191 kcal, 19.6g fat, 0.4g carbs, 1.8g protein per 100g
+      Topping(
+        id: 'avocado',
+        name: 'Avocado',
+        defaultGrams: 30,
+        per100g: BreadMacros(calories: 191, fat: 19.6, carbs: 0.4, protein: 1.8),
+      ),
+    ],
   ),
 ];
+
+// Flat list of all toppings (for lookup helpers)
+List<Topping> get toppings =>
+    toppingCategories.expand((cat) => cat.items).toList();
 
 // ============== PRESETS ==============
 // Add commonly used combinations here

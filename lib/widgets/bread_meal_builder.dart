@@ -106,6 +106,23 @@ class _BreadMealBuilderState extends State<BreadMealBuilder> {
     });
   }
 
+  void _showToppingPicker(int toppingIndex) {
+    showDialog(
+      context: context,
+      builder: (context) => _ToppingPickerDialog(
+        currentToppingId: _toppings[toppingIndex].toppingId,
+        onSelected: (toppingId) {
+          final newTopping = getToppingById(toppingId);
+          setState(() {
+            _toppings[toppingIndex].toppingId = toppingId;
+            _toppings[toppingIndex].controller.text =
+                newTopping?.defaultGrams.toStringAsFixed(0) ?? '15';
+          });
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final meal = _selectedBreadId != null ? _buildMeal() : null;
@@ -246,29 +263,29 @@ class _BreadMealBuilderState extends State<BreadMealBuilder> {
                             Row(
                               children: [
                                 Expanded(
-                                  child: DropdownButtonFormField<String>(
-                                    initialValue: toppingEntry.toppingId,
-                                    decoration: const InputDecoration(
-                                      border: OutlineInputBorder(),
-                                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                      isDense: true,
+                                  child: InkWell(
+                                    onTap: () => _showToppingPicker(index),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(color: Theme.of(context).colorScheme.outline),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              topping?.name ?? 'Select topping',
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          Icon(
+                                            Icons.arrow_drop_down,
+                                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                    items: toppings.map((t) {
-                                      return DropdownMenuItem(
-                                        value: t.id,
-                                        child: Text(t.name),
-                                      );
-                                    }).toList(),
-                                    onChanged: (value) {
-                                      if (value != null) {
-                                        final newTopping = getToppingById(value);
-                                        setState(() {
-                                          toppingEntry.toppingId = value;
-                                          toppingEntry.controller.text =
-                                              newTopping?.defaultGrams.toStringAsFixed(0) ?? '15';
-                                        });
-                                      }
-                                    },
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -422,4 +439,116 @@ class _ToppingEntry {
     required this.toppingId,
     required this.controller,
   });
+}
+
+/// Dialog for picking a topping with collapsible categories
+class _ToppingPickerDialog extends StatefulWidget {
+  final String currentToppingId;
+  final void Function(String toppingId) onSelected;
+
+  const _ToppingPickerDialog({
+    required this.currentToppingId,
+    required this.onSelected,
+  });
+
+  @override
+  State<_ToppingPickerDialog> createState() => _ToppingPickerDialogState();
+}
+
+class _ToppingPickerDialogState extends State<_ToppingPickerDialog> {
+  final Set<String> _expandedCategories = {};
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Select Topping'),
+      contentPadding: const EdgeInsets.only(top: 16),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: toppingCategories.length,
+          itemBuilder: (context, index) {
+            final category = toppingCategories[index];
+            final isExpanded = _expandedCategories.contains(category.name);
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Category header
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      if (isExpanded) {
+                        _expandedCategories.remove(category.name);
+                      } else {
+                        _expandedCategories.add(category.name);
+                      }
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    child: Row(
+                      children: [
+                        Text(category.icon, style: const TextStyle(fontSize: 18)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            category.name,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        Text(
+                          '${category.items.length}',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          isExpanded ? Icons.expand_less : Icons.expand_more,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Expanded items
+                if (isExpanded)
+                  ...category.items.map((topping) {
+                    final isSelected = topping.id == widget.currentToppingId;
+                    return ListTile(
+                      dense: true,
+                      selected: isSelected,
+                      selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
+                      contentPadding: const EdgeInsets.only(left: 48, right: 16),
+                      title: Text(topping.name),
+                      subtitle: Text(
+                        '${topping.defaultGrams.toStringAsFixed(0)}g default',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                      trailing: isSelected
+                          ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
+                          : null,
+                      onTap: () {
+                        widget.onSelected(topping.id);
+                        Navigator.pop(context);
+                      },
+                    );
+                  }),
+              ],
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
 }

@@ -109,3 +109,23 @@ Map<String, Recipe> getCiderRecipes() {
   }
   return recipes;
 }
+
+// ============== MISC ITEMS ==============
+// Non-drink items tracked through drinks system
+
+final Recipe snusRecipe = Recipe(
+  id: 'snus',
+  name: 'Snus',
+  ingredients: ['1 portion snus'],
+  instructions: ['Place under upper lip.'],
+  per100g: Macros(cals: '0 kcal', carbs: '0 g', fat: '0 g', protein: '0 g'),
+  total: Macros(cals: '0 kcal', carbs: '0 g', fat: '0 g', protein: '0 g'),
+  servingGrams: 1,
+);
+
+/// Get misc items as Recipe map
+Map<String, Recipe> getMiscRecipes() {
+  return {
+    'snus': snusRecipe,
+  };
+}

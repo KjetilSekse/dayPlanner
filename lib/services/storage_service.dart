@@ -272,6 +272,8 @@ class StorageService {
     }
     // Add ciders from config
     drinks.addAll(getCiderRecipes());
+    // Add misc items (snus, etc.)
+    drinks.addAll(getMiscRecipes());
     debugPrint('Total drinks loaded: ${drinks.length} (including ${allCiders.length} ciders)');
     return drinks;
   }
