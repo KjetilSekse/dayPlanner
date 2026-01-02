@@ -183,6 +183,9 @@ class StorageService {
         'mealReplacements': prefs.getString('mealReplacements') != null
             ? json.decode(prefs.getString('mealReplacements')!)
             : null,
+        'mealExtras': prefs.getString('mealExtras') != null
+            ? json.decode(prefs.getString('mealExtras')!)
+            : null,
         'selectedMenus': prefs.getString('selectedMenus') != null
             ? json.decode(prefs.getString('selectedMenus')!)
             : null,
@@ -379,6 +382,56 @@ class StorageService {
       replacements[dateKey] = recipeId;
     }
     await saveMealReplacements(replacements);
+  }
+
+  // ============== MEAL EXTRAS ==============
+  // Additional ingredients added alongside the main recipe
+
+  Map<String, List<String>> loadMealExtras() {
+    final extrasJson = prefs.getString('mealExtras');
+    if (extrasJson == null) {
+      return {};
+    }
+    final decoded = json.decode(extrasJson) as Map<String, dynamic>;
+    return decoded.map((k, v) => MapEntry(k, (v as List).cast<String>()));
+  }
+
+  // Get meal extras for a specific date and meal slot
+  List<String> getMealExtrasForDate(DateTime date, int mealIdx, Map<String, List<String>> extras) {
+    final dateKey = '${dateToString(date)}-$mealIdx';
+    return extras[dateKey] ?? [];
+  }
+
+  Future<void> saveMealExtras(Map<String, List<String>> extras) async {
+    await prefs.setString('mealExtras', json.encode(extras));
+    await backupToFile();
+  }
+
+  // Add a single extra item to a meal
+  Future<void> addMealExtra(DateTime date, int mealIdx, String encodedItem, Map<String, List<String>> extras) async {
+    final dateKey = '${dateToString(date)}-$mealIdx';
+    extras[dateKey] ??= [];
+    extras[dateKey]!.add(encodedItem);
+    await saveMealExtras(extras);
+  }
+
+  // Remove a single extra item from a meal by index
+  Future<void> removeMealExtra(DateTime date, int mealIdx, int index, Map<String, List<String>> extras) async {
+    final dateKey = '${dateToString(date)}-$mealIdx';
+    if (extras[dateKey] != null && index < extras[dateKey]!.length) {
+      extras[dateKey]!.removeAt(index);
+      if (extras[dateKey]!.isEmpty) {
+        extras.remove(dateKey);
+      }
+      await saveMealExtras(extras);
+    }
+  }
+
+  // Clear all extras for a meal slot
+  Future<void> clearMealExtras(DateTime date, int mealIdx, Map<String, List<String>> extras) async {
+    final dateKey = '${dateToString(date)}-$mealIdx';
+    extras.remove(dateKey);
+    await saveMealExtras(extras);
   }
 
   // Selected menus - now stored by date string

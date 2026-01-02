@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../config/liquids.dart';
 import '../models/bread_meal.dart';
+import '../models/meal_item.dart';
 import '../models/recipe.dart';
 import '../models/snack.dart';
 import '../services/notification_service.dart';
@@ -34,6 +35,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   Map<String, String> _customTimes = {}; // dateStr-mealIdx -> time
   Map<String, String> _mealReplacements = {}; // dateStr-mealIdx or dayIdx-mealIdx -> recipeId
   Map<String, double> _mealPortions = {}; // dateStr-mealIdx -> portion multiplier
+  Map<String, List<String>> _mealExtras = {}; // dateStr-mealIdx -> list of encoded ingredient items
   Set<String> _completed = {};
   Set<String> _checkedIngredients = {};
   Map<String, Map<String, List<String>>> _dailyDrinks = {}; // dateStr -> drinkId -> list of timestamps
@@ -150,6 +152,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         _customTimes = _storage.loadCustomTimes();
         _mealReplacements = _storage.loadMealReplacements();
         _mealPortions = _storage.loadMealPortions();
+        _mealExtras = _storage.loadMealExtras();
         _notifOn = _storage.notificationsEnabled;
         _vibrateOn = _storage.vibrationEnabled;
         _completed = _storage.loadCompleted();
@@ -423,6 +426,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         });
         await _storage.saveMealReplacements(_mealReplacements);
       },
+      onIngredientAdded: (encodedItem) async {
+        setState(() {
+          _mealExtras[key] ??= [];
+          _mealExtras[key]!.add(encodedItem);
+        });
+        await _storage.saveMealExtras(_mealExtras);
+      },
     );
   }
 
@@ -431,11 +441,27 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     final key = '$dateStr-$mealIdx';
     setState(() {
       _mealReplacements.remove(key);
-      // Also clear the portion if set
+      // Also clear the portion and extras if set
       _mealPortions.remove(key);
+      _mealExtras.remove(key);
     });
     await _storage.saveMealReplacements(_mealReplacements);
     await _storage.saveMealPortions(_mealPortions);
+    await _storage.saveMealExtras(_mealExtras);
+  }
+
+  void _removeMealExtra(DateTime date, int mealIdx, int extraIndex) async {
+    final dateStr = StorageService.dateToString(date);
+    final key = '$dateStr-$mealIdx';
+    setState(() {
+      if (_mealExtras[key] != null && extraIndex < _mealExtras[key]!.length) {
+        _mealExtras[key]!.removeAt(extraIndex);
+        if (_mealExtras[key]!.isEmpty) {
+          _mealExtras.remove(key);
+        }
+      }
+    });
+    await _storage.saveMealExtras(_mealExtras);
   }
 
   void _showPortionPicker(BuildContext context, DateTime date, int mealIdx) {
@@ -696,6 +722,212 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
+  Widget _buildMealSlotWithExtras({
+    required BuildContext context,
+    required DateTime date,
+    required int mealIdx,
+    required String mealId,
+    required String slotName,
+    required String time,
+    required Recipe? recipe,
+    required double portion,
+    required List<String> extras,
+  }) {
+    final hasMainRecipe = recipe != null;
+    final hasExtras = extras.isNotEmpty;
+
+    // If no main recipe and no extras, show empty slot
+    if (!hasMainRecipe && !hasExtras) {
+      return Stack(
+        children: [
+          _buildEmptyMealSlot(context, date, mealIdx, slotName, time),
+          Positioned(
+            top: 8,
+            right: 16,
+            child: Text(
+              slotName,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Calculate total macros from extras
+    int extrasCalories = 0;
+    double extrasFat = 0;
+    double extrasCarbs = 0;
+    double extrasProtein = 0;
+
+    for (final encodedItem in extras) {
+      final mealItem = MealItem.fromEncodedId(encodedItem);
+      if (mealItem != null) {
+        final macros = mealItem.macros;
+        if (macros != null) {
+          extrasCalories += macros.calories;
+          extrasFat += macros.fat;
+          extrasCarbs += macros.carbs;
+          extrasProtein += macros.protein;
+        }
+      }
+    }
+
+    return Stack(
+      children: [
+        Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Main recipe (if any)
+              if (hasMainRecipe)
+                RecipeCard(
+                  recipe: recipe,
+                  mealId: mealId,
+                  time: time,
+                  completed: _completed.contains(mealId),
+                  checkedIngredients: _checkedIngredients,
+                  onCompletedChanged: (v) => _toggleCompleted(mealId, v),
+                  onIngredientChanged: _toggleIngredient,
+                  onTimeEdit: () => _editMealTime(context, date, mealIdx, time),
+                  onReplace: () => _showRecipePicker(context, date, mealIdx, slotName),
+                  onClear: () => _clearMeal(date, mealIdx),
+                  portion: portion,
+                  onPortionTap: () => _showPortionPicker(context, date, mealIdx),
+                ),
+
+              // Extra ingredients section
+              if (hasExtras) ...[
+                if (hasMainRecipe) const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.add_circle_outline,
+                            size: 16,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Extra Ingredients',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            '+$extrasCalories kcal',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ...extras.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final encodedItem = entry.value;
+                        final mealItem = MealItem.fromEncodedId(encodedItem);
+                        if (mealItem == null) return const SizedBox.shrink();
+
+                        final ingredient = mealItem.ingredient;
+                        final macros = mealItem.macros;
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${ingredient?.name ?? 'Unknown'} (${mealItem.grams.toStringAsFixed(0)}g)',
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                              Text(
+                                '${macros?.calories ?? 0} kcal',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              InkWell(
+                                onTap: () => _removeMealExtra(date, mealIdx, index),
+                                borderRadius: BorderRadius.circular(12),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(4),
+                                  child: Icon(
+                                    Icons.close,
+                                    size: 16,
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ],
+
+              // Add more button (always show if we have something in this slot)
+              InkWell(
+                onTap: () => _showRecipePicker(context, date, mealIdx, slotName),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.add,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        hasMainRecipe ? 'Add Ingredient' : 'Add Recipe',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Positioned(
+          top: 8,
+          right: 16,
+          child: Text(
+            slotName,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildEmptyMealSlot(BuildContext context, DateTime date, int mealIdx, String mealName, String time) {
     return Card(
       child: InkWell(
@@ -780,42 +1012,20 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           final portion = _getPortionForMeal(date, mealIdx);
           final customTime = _storage.getCustomTimeForDate(date, mealIdx, _customTimes);
           final time = customTime ?? slot.defaultTime;
+          final extras = _mealExtras['$dateStr-$mealIdx'] ?? [];
 
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: Stack(
-              children: [
-                if (replacementRecipe != null)
-                  RecipeCard(
-                    recipe: replacementRecipe,
-                    mealId: mealId,
-                    time: time,
-                    completed: _completed.contains(mealId),
-                    checkedIngredients: _checkedIngredients,
-                    onCompletedChanged: (v) => _toggleCompleted(mealId, v),
-                    onIngredientChanged: _toggleIngredient,
-                    onTimeEdit: () => _editMealTime(context, date, mealIdx, time),
-                    onReplace: () => _showRecipePicker(context, date, mealIdx, slot.name),
-                    onClear: () => _clearMeal(date, mealIdx),
-                    portion: portion,
-                    onPortionTap: () => _showPortionPicker(context, date, mealIdx),
-                  )
-                else
-                  // Empty meal slot - show "Add" card
-                  _buildEmptyMealSlot(context, date, mealIdx, slot.name, time),
-                Positioned(
-                  top: 8,
-                  right: 16,
-                  child: Text(
-                    slot.name,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
-                    ),
-                  ),
-                ),
-              ],
+            child: _buildMealSlotWithExtras(
+              context: context,
+              date: date,
+              mealIdx: mealIdx,
+              mealId: mealId,
+              slotName: slot.name,
+              time: time,
+              recipe: replacementRecipe,
+              portion: portion,
+              extras: extras,
             ),
           );
         }),
@@ -874,10 +1084,32 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       }
     }
 
-    final totalCalories = macros.calories + snackCalories + liquidCalories;
-    final totalProtein = macros.protein + snackProtein + liquidProtein.round();
-    final totalCarbs = macros.carbs + snackCarbs + liquidCarbs.round();
-    final totalFat = macros.fat + snackFat + liquidFat.round();
+    // Add meal extras (extra ingredients added to meals)
+    int extrasCalories = 0;
+    double extrasProtein = 0;
+    double extrasCarbs = 0;
+    double extrasFat = 0;
+
+    for (int mealIdx = 0; mealIdx < 3; mealIdx++) {
+      final extras = _mealExtras['$dateStr-$mealIdx'] ?? [];
+      for (final encodedItem in extras) {
+        final mealItem = MealItem.fromEncodedId(encodedItem);
+        if (mealItem != null) {
+          final itemMacros = mealItem.macros;
+          if (itemMacros != null) {
+            extrasCalories += itemMacros.calories;
+            extrasProtein += itemMacros.protein;
+            extrasCarbs += itemMacros.carbs;
+            extrasFat += itemMacros.fat;
+          }
+        }
+      }
+    }
+
+    final totalCalories = macros.calories + snackCalories + liquidCalories + extrasCalories;
+    final totalProtein = macros.protein + snackProtein + liquidProtein.round() + extrasProtein.round();
+    final totalCarbs = macros.carbs + snackCarbs + liquidCarbs.round() + extrasCarbs.round();
+    final totalFat = macros.fat + snackFat + liquidFat.round() + extrasFat.round();
     final totalWater = _storage.getWaterForDate(date, _dailyWater);
     final waterLiters = (totalWater / 1000).toStringAsFixed(1);
 

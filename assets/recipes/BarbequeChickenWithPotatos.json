@@ -1,0 +1,31 @@
+{
+  "name": "Marinated chicken thigh Filet with gratinated potatoes",
+  "ingredients": [
+    "400 g chicken thigh fillet",
+    "40 g brown sugar",
+    "80 g ketchup",
+    "1 chinese garlic",
+    "Salt, pepper, basil (to taste)",
+    "400g gratinated potatoes"
+  ],
+  "instructions": [
+    "Combine brown sugar, ketchup, salt, pepper, finely chopped garlic, and basil to create the marinade.",
+    "Cut the chicken thigh filets in half then coat them in the marinade and let sit for a few minutes.",
+    "Cook the chicken in a pan over medium to high heat until fully cooked and caramelized.",
+    "Cook gratinated potatoes in oven until done."
+  ],
+  "macros": {
+    "per_100g": {
+      "cals": "165 kcal",
+      "carbs": "11.6 g",
+      "fat": "7.4 g",
+      "protein": "12.4 g"
+    },
+    "total": {
+      "cals": "1516 kcal",
+      "carbs": "106 g",
+      "fat": "68 g",
+      "protein": "114 g"
+    }
+  }
+}

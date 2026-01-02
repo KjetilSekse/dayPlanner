@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../config/ingredients.dart';
+import '../models/meal_item.dart';
 import '../models/recipe.dart';
 import '../models/snack.dart';
 import '../models/bread_meal.dart';
@@ -21,6 +23,7 @@ class RecipePicker extends StatefulWidget {
   final Map<String, Snack> snacks;
   final String? currentRecipeId;
   final void Function(String? recipeId) onRecipeSelected;
+  final void Function(String encodedItem)? onIngredientAdded; // For adding extra ingredients
 
   const RecipePicker({
     super.key,
@@ -30,6 +33,7 @@ class RecipePicker extends StatefulWidget {
     required this.snacks,
     required this.currentRecipeId,
     required this.onRecipeSelected,
+    this.onIngredientAdded,
   });
 
   static void show({
@@ -40,6 +44,7 @@ class RecipePicker extends StatefulWidget {
     required Map<String, Snack> snacks,
     required String? currentRecipeId,
     required void Function(String? recipeId) onRecipeSelected,
+    void Function(String encodedItem)? onIngredientAdded,
   }) {
     showModalBottomSheet(
       context: context,
@@ -56,6 +61,7 @@ class RecipePicker extends StatefulWidget {
           snacks: snacks,
           currentRecipeId: currentRecipeId,
           onRecipeSelected: onRecipeSelected,
+          onIngredientAdded: onIngredientAdded,
         ),
       ),
     );
@@ -84,7 +90,7 @@ class _RecipePickerState extends State<RecipePicker> with SingleTickerProviderSt
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 5, // Breakfast, Lunch, Dinner, Snacks, Bread
+      length: 6, // Breakfast, Lunch, Dinner, Snacks, Bread, Ingredients
       vsync: this,
       initialIndex: _getInitialTabIndex(),
     );
@@ -138,6 +144,7 @@ class _RecipePickerState extends State<RecipePicker> with SingleTickerProviderSt
             Tab(text: 'Dinner'),
             Tab(text: 'Snacks'),
             Tab(text: 'Bread'),
+            Tab(text: 'Ingredients'),
           ],
         ),
         // Tab content
@@ -150,6 +157,7 @@ class _RecipePickerState extends State<RecipePicker> with SingleTickerProviderSt
               _buildRecipeList(widget.categoryRecipes[MealCategory.dinner] ?? {}),
               _buildSnackList(),
               _buildBreadTab(currentBreadMeal),
+              _buildIngredientsTab(),
             ],
           ),
         ),
@@ -305,6 +313,132 @@ class _RecipePickerState extends State<RecipePicker> with SingleTickerProviderSt
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildIngredientsTab() {
+    if (widget.onIngredientAdded == null) {
+      return const Center(
+        child: Text(
+          'Ingredient adding not available',
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+
+    if (ingredientCategories.isEmpty ||
+        ingredientCategories.every((cat) => cat.items.isEmpty)) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text(
+            'No ingredients configured yet.\nAdd ingredients to lib/config/ingredients.dart',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey),
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: ingredientCategories.length,
+      itemBuilder: (context, index) {
+        final category = ingredientCategories[index];
+        if (category.items.isEmpty) return const SizedBox.shrink();
+
+        return ExpansionTile(
+          leading: Text(category.icon, style: const TextStyle(fontSize: 24)),
+          title: Text(category.name),
+          subtitle: Text(
+            '${category.items.length} items',
+            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+          ),
+          children: category.items.map((ingredient) {
+            return ListTile(
+              contentPadding: const EdgeInsets.only(left: 72, right: 16),
+              title: Text(ingredient.name),
+              subtitle: Text(
+                '${ingredient.per100g.calories} kcal/100g | P: ${ingredient.per100g.protein.toStringAsFixed(1)}g',
+                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+              ),
+              trailing: _MacroChip(text: '${ingredient.defaultGrams.toStringAsFixed(0)}g'),
+              onTap: () => _showGramInputDialog(ingredient),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  void _showGramInputDialog(Ingredient ingredient) {
+    final controller = TextEditingController(
+      text: ingredient.defaultGrams.toStringAsFixed(0),
+    );
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text('Add ${ingredient.name}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Macros per 100g: ${ingredient.per100g.calories} kcal',
+                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Amount',
+                  suffixText: 'g',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: controller,
+                builder: (context, value, child) {
+                  final grams = double.tryParse(value.text) ?? 0;
+                  final macros = ingredient.macrosForGrams(grams);
+                  return Text(
+                    '${macros.calories} kcal | F: ${macros.fat.toStringAsFixed(1)}g | C: ${macros.carbs.toStringAsFixed(1)}g | P: ${macros.protein.toStringAsFixed(1)}g',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final grams = double.tryParse(controller.text);
+                if (grams != null && grams > 0) {
+                  final mealItem = MealItem(
+                    ingredientId: ingredient.id,
+                    grams: grams,
+                  );
+                  Navigator.pop(dialogContext);
+                  Navigator.pop(context); // Close the picker
+                  widget.onIngredientAdded!(mealItem.toEncodedId());
+                }
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
     );
   }
 }
